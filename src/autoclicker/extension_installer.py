@@ -65,7 +65,8 @@ class ExtensionDialog(QDialog):
         self.copy_btns = {}
         for url in BROWSER_PAGES:
             b = QPushButton(tr("ext_copy", url=url))
-            b.clicked.connect(lambda _=False, u=url: self._copy(u))
+            b.setProperty("url", url)
+            b.clicked.connect(self._on_copy_clicked)  # không dùng lambda: xem ghi chú trong app.py
             row.addWidget(b)
             self.copy_btns[url] = b
         v2.addLayout(row)
@@ -97,6 +98,9 @@ class ExtensionDialog(QDialog):
             self.path_lbl.setText(f"{tr('ext_step1_done')}\n{path}")
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
         self.path_lbl.show()
+
+    def _on_copy_clicked(self):
+        self._copy(self.sender().property("url"))
 
     def _copy(self, url: str):
         QGuiApplication.clipboard().setText(url)
