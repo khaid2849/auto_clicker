@@ -10,7 +10,7 @@ class Backend:
     name = "?"
     #: Đọc được vị trí chuột toàn cục không (Wayland: không)
     can_read_cursor = True
-    #: (nhãn nút, hàm) hiện cạnh cảnh báo để người dùng tự sửa, vd. mở cài đặt quyền
+    #: (khóa i18n của nhãn nút, hàm) hiện cạnh cảnh báo để người dùng tự sửa, vd. mở cài đặt quyền
     fix_action: Optional[Tuple[str, Callable[[], None]]] = None
 
     def status(self) -> Optional[str]:
@@ -33,7 +33,7 @@ class Backend:
 class DryBackend(Backend):
     """Không gửi click thật: để thử giao diện, hoặc khi backend thật không khởi tạo được."""
 
-    name = "mô phỏng"
+    name = "dry-run"
 
     def __init__(self, error: Optional[str] = None):
         self.error = error

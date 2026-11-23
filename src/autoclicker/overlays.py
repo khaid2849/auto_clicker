@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QWidget
 
 from .backends import CAN_POSITION_WINDOWS, OVERLAY_FULLSCREEN
 from .common import mono_font
+from .i18n import tr
 
 RED = QColor(255, 69, 58)
 
@@ -52,7 +53,7 @@ class PickerOverlay(QWidget):
             self._draw_crosshair(p)
 
     def _draw_hint(self, p: QPainter):
-        hint = "Click chuột trái để chọn vị trí   •   Esc hoặc chuột phải để hủy"
+        hint = tr("overlay_hint")
         f = QFont()
         f.setPointSize(15)
         f.setBold(True)

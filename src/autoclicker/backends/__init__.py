@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 import sys
 
+from ..i18n import tr
 from .base import Backend, DryBackend, KeepAwake
 
 
@@ -31,10 +32,11 @@ def detect() -> str:
 
 
 KIND = detect()
-PLATFORM_LABEL = {
-    "macos": "macOS", "windows": "Windows", "x11": "Linux · X11",
-    "wayland": "Linux · Wayland", "dry": "Mô phỏng",
-}.get(KIND, KIND)
+
+
+def platform_label() -> str:
+    return {"macos": "macOS", "windows": "Windows", "x11": "Linux · X11",
+            "wayland": "Linux · Wayland", "dry": tr("platform_dry")}.get(KIND, KIND)
 
 # Wayland không cho ứng dụng tự đặt vị trí cửa sổ
 CAN_POSITION_WINDOWS = KIND != "wayland"
@@ -66,7 +68,7 @@ def create_backend() -> Backend:
             return DryBackend()
         return Impl()
     except Exception as e:  # noqa: BLE001
-        return DryBackend(f"Không khởi tạo được backend '{KIND}': {e}")
+        return DryBackend(tr("backend_init_failed", kind=KIND, e=e))
 
 
 def create_keepawake() -> KeepAwake:
