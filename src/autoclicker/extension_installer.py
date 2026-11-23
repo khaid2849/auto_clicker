@@ -1,9 +1,9 @@
-"""Hộp thoại hướng dẫn cài extension Chrome/Edge bằng 'Load unpacked'.
+"""Dialog that walks the user through installing the Chrome/Edge extension with 'Load unpacked'.
 
-Chrome/Edge không cho ứng dụng tự cài extension (chỉ qua store hoặc Developer mode), nên app:
-  1. chép extension ra một thư mục cố định, dễ tìm (Documents/AutoClicker Extension),
-  2. chép sẵn địa chỉ trang quản lý extension để dán vào trình duyệt,
-  3. hướng dẫn bật Developer mode → Load unpacked.
+Chrome/Edge don't let applications install extensions (only the store or Developer mode can), so the app:
+  1. copies the extension to a fixed, easy-to-find folder (Documents/AutoClicker Extension),
+  2. copies the address of the browser's extensions page so it can be pasted,
+  3. explains Developer mode → Load unpacked.
 """
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def install_dir() -> Path:
 
 
 def export_extension(dest: Path | None = None) -> Path:
-    """Chép (ghi đè) extension ra thư mục cố định; trình duyệt sẽ load extension từ đây."""
+    """Copy (overwrite) the extension into the fixed folder; the browser loads it from there."""
     dest = dest or install_dir()
     shutil.copytree(EXTENSION_SRC, dest, dirs_exist_ok=True,
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "tests"))
@@ -45,7 +45,7 @@ class ExtensionDialog(QDialog):
         intro = QLabel(tr("ext_intro"), wordWrap=True, textFormat=Qt.RichText)
         root.addWidget(intro)
 
-        # Bước 1
+        # Step 1
         step1 = QGroupBox(tr("ext_step1"))
         v1 = QVBoxLayout(step1)
         btn = QPushButton(tr("ext_step1_btn"))
@@ -57,7 +57,7 @@ class ExtensionDialog(QDialog):
         v1.addWidget(self.path_lbl)
         root.addWidget(step1)
 
-        # Bước 2
+        # Step 2
         step2 = QGroupBox(tr("ext_step2"))
         v2 = QVBoxLayout(step2)
         v2.addWidget(QLabel(tr("ext_step2_text"), wordWrap=True))
@@ -66,13 +66,13 @@ class ExtensionDialog(QDialog):
         for url in BROWSER_PAGES:
             b = QPushButton(tr("ext_copy", url=url))
             b.setProperty("url", url)
-            b.clicked.connect(self._on_copy_clicked)  # không dùng lambda: xem ghi chú trong app.py
+            b.clicked.connect(self._on_copy_clicked)  # no lambda: see the note in app.py
             row.addWidget(b)
             self.copy_btns[url] = b
         v2.addLayout(row)
         root.addWidget(step2)
 
-        # Bước 3, 4
+        # Steps 3, 4
         step3 = QGroupBox(tr("ext_step3"))
         v3 = QVBoxLayout(step3)
         v3.addWidget(QLabel(tr("ext_step3_text"), wordWrap=True, textFormat=Qt.RichText))

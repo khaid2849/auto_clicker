@@ -1,7 +1,7 @@
-"""Giao diện Sáng / Tối / Theo hệ thống.
+"""Light / Dark / System theme.
 
-Dùng style Fusion + bảng màu riêng để trông giống nhau trên macOS, Windows và Linux.
-Qt ≥ 6.8 còn đổi được cả thanh tiêu đề cửa sổ (macOS, Windows) qua styleHints().setColorScheme().
+Uses the Fusion style with our own palettes so the app looks the same on macOS, Windows and Linux.
+With Qt ≥ 6.8 the window title bar follows too (macOS, Windows) via styleHints().setColorScheme().
 """
 from __future__ import annotations
 
@@ -11,12 +11,12 @@ from PySide6.QtGui import QColor, QGuiApplication, QPalette
 THEMES = ("system", "light", "dark")
 
 _COLORS = {
-    False: {  # sáng
+    False: {  # light
         "window": "#f3f4f6", "base": "#ffffff", "alt": "#f9fafb", "text": "#111827", "muted": "#6b7280",
         "button": "#ffffff", "border": "#d1d5db", "highlight": "#2563eb", "disabled": "#9ca3af",
         "warn_bg": "#fff4e5", "warn_border": "#f5c26b", "warn_text": "#7a4b00",
     },
-    True: {  # tối
+    True: {  # dark
         "window": "#1f2023", "base": "#2a2b2f", "alt": "#303136", "text": "#e5e7eb", "muted": "#9ca3af",
         "button": "#34353a", "border": "#4b4d55", "highlight": "#3b82f6", "disabled": "#6b7280",
         "warn_bg": "#3a2c12", "warn_border": "#8a6a2a", "warn_text": "#f5d9a8",
@@ -61,7 +61,7 @@ def _palette(c: dict) -> QPalette:
 
 
 def apply_theme(mode: str) -> bool:
-    """Áp dụng theme cho cả app. Trả về True nếu đang tối."""
+    """Apply the theme to the whole app. Returns True if the result is dark."""
     app = QGuiApplication.instance()
     hints = app.styleHints()
     if hasattr(hints, "setColorScheme"):  # Qt 6.8+

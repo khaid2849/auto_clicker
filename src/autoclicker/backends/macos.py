@@ -1,4 +1,4 @@
-"""macOS: click bằng Quartz CGEvent; cần quyền Accessibility."""
+"""macOS: clicks via Quartz CGEvent; needs the Accessibility permission."""
 from __future__ import annotations
 
 import subprocess
@@ -16,7 +16,7 @@ def accessibility_trusted(prompt: bool = False) -> bool:
     try:
         from ApplicationServices import AXIsProcessTrustedWithOptions, kAXTrustedCheckOptionPrompt
     except ImportError:
-        return True  # không kiểm tra được -> không chặn
+        return True  # can't check -> don't block
     return bool(AXIsProcessTrustedWithOptions({kAXTrustedCheckOptionPrompt: prompt}))
 
 
@@ -42,7 +42,7 @@ class QuartzBackend(Backend):
     def click(self, x, y, button="left", clicks=1):
         down, up, btn = self._EVENTS[button]
         self.move(x, y)
-        for n in range(1, clicks + 1):  # clickState 1 rồi 2 -> macOS hiểu là double click
+        for n in range(1, clicks + 1):  # clickState 1 then 2 -> macOS sees a double click
             for etype in (down, up):
                 ev = Quartz.CGEventCreateMouseEvent(None, etype, (x, y), btn)
                 Quartz.CGEventSetIntegerValueField(ev, Quartz.kCGMouseEventClickState, n)
@@ -51,7 +51,7 @@ class QuartzBackend(Backend):
 
 
 class MacKeepAwake(KeepAwake):
-    """Luôn chặn App Nap (macOS làm trễ timer của app chạy nền); tùy chọn chặn ngủ/tắt màn hình."""
+    """Always disables App Nap (macOS delays timers of background apps); optionally prevents sleep."""
 
     def __init__(self):
         self._token = None
@@ -65,7 +65,7 @@ class MacKeepAwake(KeepAwake):
         if prevent_sleep:
             opts |= getattr(F, "NSActivityIdleSystemSleepDisabled", 1 << 20)
             opts |= getattr(F, "NSActivityIdleDisplaySleepDisabled", 1 << 40)
-        self._token = F.NSProcessInfo.processInfo().beginActivityWithOptions_reason_(opts, "Auto Clicker đang chạy")
+        self._token = F.NSProcessInfo.processInfo().beginActivityWithOptions_reason_(opts, "Auto Clicker is running")
         return True
 
     def end(self):

@@ -1,4 +1,4 @@
-"""Lớp phủ chọn vị trí click và vòng tròn đánh dấu điểm click."""
+"""Position picker overlay and the marker that shows the click point."""
 from __future__ import annotations
 
 import time
@@ -15,20 +15,20 @@ RED = QColor(255, 69, 58)
 
 
 def cover_screen(w: QWidget, screen) -> None:
-    """Phủ kín một màn hình."""
+    """Cover one whole screen."""
     w.setScreen(screen)
     w.setGeometry(screen.geometry())
     if OVERLAY_FULLSCREEN:
-        w.showFullScreen()  # Wayland không đặt được vị trí cửa sổ; X11 cần để phủ thanh trên cùng
+        w.showFullScreen()  # Wayland can't position windows; X11 needs it to cover the top bar
     else:
-        w.show()  # macOS: fullscreen sẽ tạo Space mới có hiệu ứng chuyển cảnh -> không dùng
+        w.show()  # macOS: fullscreen would open a new Space with an animation -> avoid
 
 
 class PickerOverlay(QWidget):
-    """Lớp phủ mờ một màn hình: tâm ngắm + tọa độ chạy theo chuột; click trái để chọn.
+    """Dimmed overlay over one screen: crosshair + live coordinates; left-click to pick.
 
-    Tọa độ toàn cục = góc màn hình + vị trí chuột trong overlay, nên không cần đọc vị trí chuột
-    toàn cục -> chạy được cả trên Wayland.
+    Global position = screen origin + cursor position inside the overlay, so the global cursor
+    position never has to be read -> works on Wayland too.
     """
 
     picked = Signal(int, int)
@@ -47,7 +47,7 @@ class PickerOverlay(QWidget):
     def paintEvent(self, _):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        p.fillRect(self.rect(), QColor(0, 0, 0, 70))  # alpha > 0 để cửa sổ nhận được click
+        p.fillRect(self.rect(), QColor(0, 0, 0, 70))  # alpha > 0 so the window receives clicks
         self._draw_hint(p)
         if self.local is not None:
             self._draw_crosshair(p)
@@ -97,7 +97,7 @@ class PickerOverlay(QWidget):
         p.drawText(inner, Qt.AlignLeft | Qt.AlignBottom, lines[1])
 
     def enterEvent(self, _):
-        self.activateWindow()  # để phím Esc tới đúng overlay đang có chuột
+        self.activateWindow()  # so Esc reaches the overlay under the cursor
         self.setFocus()
 
     def mouseMoveEvent(self, e):
@@ -121,7 +121,7 @@ class PickerOverlay(QWidget):
 
 
 class PositionPicker(QObject):
-    """Mở một overlay cho mỗi màn hình."""
+    """Opens one overlay per screen."""
 
     picked = Signal(int, int)
     finished = Signal()
@@ -153,7 +153,7 @@ class PositionPicker(QObject):
 
 
 class TargetMarker(QWidget):
-    """Vòng tròn nhấp nháy tại điểm click, không chặn chuột."""
+    """Pulsing circle at the click point; doesn't block the mouse."""
 
     SIZE = 90
 
@@ -168,7 +168,7 @@ class TargetMarker(QWidget):
         if CAN_POSITION_WINDOWS:
             self.setGeometry(x - self.SIZE // 2, y - self.SIZE // 2, self.SIZE, self.SIZE)
             self.center = QPointF(self.SIZE / 2, self.SIZE / 2)
-        else:  # Wayland: phủ cả màn hình rồi vẽ vòng tròn tại điểm
+        else:  # Wayland: cover the screen and draw the circle at the point
             self.center = QPointF(pt - self.scr.geometry().topLeft())
         self._t0 = time.monotonic()
         self._anim = QTimer(self)

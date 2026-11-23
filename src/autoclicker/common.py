@@ -1,4 +1,4 @@
-"""Hằng số và tiện ích dùng chung cho giao diện."""
+"""Shared constants and UI helpers."""
 from __future__ import annotations
 
 import math
@@ -27,7 +27,7 @@ def mono_font(pt: int, bold: bool = False) -> QFont:
 
 
 def make_icon(size: int = 256) -> QPixmap:
-    """Icon tâm ngắm vẽ bằng code (cửa sổ, khay hệ thống, file icon khi đóng gói)."""
+    """Crosshair icon drawn in code (window, system tray, icon files when packaging)."""
     pm = QPixmap(size, size)
     pm.fill(Qt.transparent)
     p = QPainter(pm)
@@ -52,4 +52,4 @@ def make_icon(size: int = 256) -> QPixmap:
 def export_icon(path: str, size: int = 1024) -> None:
     _app = QGuiApplication.instance() or QGuiApplication([])
     if not make_icon(size).save(path):
-        raise SystemExit(f"Không ghi được icon: {path}")
+        raise SystemExit(f"Could not write the icon: {path}")

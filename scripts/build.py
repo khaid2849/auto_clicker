@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Đóng gói Auto Clicker thành app chạy độc lập cho hệ điều hành đang dùng (PyInstaller).
+"""Package Auto Clicker as a standalone app for the current OS (PyInstaller).
 
     python -m pip install ".[build]"
     python scripts/build.py
 
-Kết quả trong dist/:
+Output in dist/:
     macOS    AutoClicker.app             + AutoClicker-macos-<arch>.zip
     Windows  AutoClicker.exe (1 file)    + AutoClicker-windows-<arch>.zip
     Linux    AutoClicker/AutoClicker     + AutoClicker-linux-<arch>.tar.gz
@@ -42,12 +42,12 @@ def main() -> None:
     try:
         import PyInstaller  # noqa: F401
     except ImportError:
-        sys.exit('Thiếu PyInstaller. Chạy trước:  python -m pip install ".[build]"')
+        sys.exit('PyInstaller is missing. Run first:  python -m pip install ".[build]"')
 
     BUILD.mkdir(exist_ok=True)
     env = {**os.environ, "PYTHONPATH": str(SRC), "QT_QPA_PLATFORM": "offscreen", "AUTOCLICKER_BACKEND": "dry"}
 
-    # 1. Icon (PyInstaller + Pillow tự chuyển PNG sang .icns / .ico)
+    # 1. Icon (PyInstaller + Pillow convert the PNG to .icns / .ico)
     icon = BUILD / "icon.png"
     run([sys.executable, "-m", "autoclicker", "--export-icon", icon], env=env)
 
@@ -55,19 +55,19 @@ def main() -> None:
     extension = SRC / "autoclicker" / "browser_extension"
     cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--windowed",
            "--name", NAME, "--paths", SRC,
-           "--add-data", f"{extension}{os.pathsep}autoclicker/browser_extension",  # cho nút "Extension trình duyệt"
+           "--add-data", f"{extension}{os.pathsep}autoclicker/browser_extension",  # for the "Browser extension" button
            "--distpath", DIST, "--workpath", BUILD / "pyinstaller", "--specpath", BUILD]
     if sys.platform == "darwin":
         cmd += ["--icon", icon, "--osx-bundle-identifier", BUNDLE_ID]
     elif sys.platform == "win32":
-        cmd += ["--icon", icon, "--onefile"]  # một file .exe duy nhất, dễ chia sẻ
-    # Linux: icon nằm trong file .desktop (scripts/install_linux.sh), không nhúng vào binary
+        cmd += ["--icon", icon, "--onefile"]  # a single .exe, easy to share
+    # Linux: the icon lives in the .desktop file (scripts/install_linux.sh), not in the binary
     run([*cmd, ROOT / "scripts" / "entry.py"])
 
-    # 3. Nén để phát hành
+    # 3. Archive for release
     base = DIST / f"{NAME}-{os_tag()}-{arch_tag()}"
     if sys.platform == "darwin":
-        # ditto giữ nguyên symlink + chữ ký trong .app (shutil.make_archive làm hỏng)
+        # ditto keeps the symlinks and signature inside the .app (shutil.make_archive breaks them)
         run(["ditto", "-c", "-k", "--keepParent", DIST / f"{NAME}.app", f"{base}.zip"])
         out = DIST / f"{NAME}.app"
     elif sys.platform == "win32":
@@ -76,7 +76,7 @@ def main() -> None:
     else:
         shutil.make_archive(str(base), "gztar", DIST, NAME)
         out = DIST / NAME / NAME
-    print(f"\n✅ Xong: {out}\n   Gói phát hành: {base.name}.*")
+    print(f"\n✅ Done: {out}\n   Release archive: {base.name}.*")
 
 
 if __name__ == "__main__":

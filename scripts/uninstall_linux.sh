@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Gỡ những gì install_linux.sh đã cài (giữ lại cài đặt người dùng trong ~/.config/KhaiTools/).
+# Remove what install_linux.sh installed (keeps your settings in ~/.config/KhaiTools/).
 set -uo pipefail
 
 rm -rf "$HOME/.local/share/autoclicker"
@@ -12,4 +12,4 @@ if [ -f /etc/udev/rules.d/60-autoclicker-uinput.rules ]; then
   sudo rm -f /etc/udev/rules.d/60-autoclicker-uinput.rules /etc/modules-load.d/autoclicker-uinput.conf
   sudo udevadm control --reload-rules
 fi
-echo "Đã gỡ Auto Clicker."
+echo "Auto Clicker has been removed."

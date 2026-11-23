@@ -1,4 +1,4 @@
-"""Linux X11 (Ubuntu on Xorg): click bằng extension XTest qua python-xlib."""
+"""Linux X11 (Ubuntu on Xorg): clicks via the XTest extension using python-xlib."""
 from __future__ import annotations
 
 import time
@@ -16,7 +16,7 @@ class X11Backend(Backend):
     def __init__(self):
         self.d = display.Display()
         if not self.d.has_extension("XTEST"):
-            raise RuntimeError("X server không hỗ trợ XTEST")
+            raise RuntimeError("the X server does not support XTEST")
 
     def move(self, x, y):
         xtest.fake_input(self.d, X.MotionNotify, x=int(x), y=int(y))

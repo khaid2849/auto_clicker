@@ -1,159 +1,102 @@
 # Auto Clicker
 
-Tự động click chuột tại một vị trí cố định theo chu kỳ (mặc định 3 phút/lần), có giao diện đồ họa.
-Một mã nguồn duy nhất chạy trên **macOS**, **Windows** và **Linux** (Ubuntu X11 lẫn Wayland), kèm **extension cho Chrome / Edge** để auto click bên trong trang web.
+A simple, free auto clicker for **Windows**, **macOS** and **Linux**.
+Pick a spot on your screen, choose how often to click, press Start — Auto Clicker does the rest.
+It also comes with a **Chrome / Edge extension** that clicks a button inside a web page, even when the tab is in the background.
 
 <p align="center">
-  <img src="docs/screenshot.png" width="300" alt="App desktop - giao diện sáng">
-  <img src="docs/screenshot-dark.png" width="300" alt="App desktop - giao diện tối">
-  <img src="docs/extension.png" width="230" alt="Extension Chrome/Edge">
+  <img src="docs/screenshot.png" width="300" alt="Auto Clicker, light theme">
+  <img src="docs/screenshot-dark.png" width="300" alt="Auto Clicker, dark theme">
+  <img src="docs/extension.png" width="230" alt="Auto Clicker browser extension">
 </p>
 
-## Tính năng
+## Features
 
-- **Chọn vị trí trực quan**: màn hình phủ mờ với tâm ngắm và tọa độ X/Y chạy theo chuột, click để chọn. Hỗ trợ nhiều màn hình.
-- **Hiện điểm**: nháy vòng tròn đỏ đúng chỗ sẽ click để kiểm tra.
-- **Tùy chỉnh**: chu kỳ theo giây/phút/giờ, cộng trừ ngẫu nhiên, dừng sau N lần, nút trái/phải/giữa, click đơn/đôi, lệch vị trí ngẫu nhiên.
-- **Chạy nền an toàn**: trả con trỏ về chỗ cũ, chống ngủ/khóa màn hình, dừng khẩn cấp khi đưa chuột vào góc trên-trái, điều khiển từ icon khay hệ thống, phím tắt `Ctrl+Enter` (`⌘↩` trên Mac).
-- **Ngôn ngữ Tiếng Việt / English** và **giao diện Sáng / Tối / Theo hệ thống**: đổi ngay ở thanh trên cùng, kể cả khi đang chạy.
-- **Extension Chrome / Edge**: nút *Extension trình duyệt* trong app hướng dẫn cài từng bước.
-- **Tự lưu cài đặt** cho lần mở sau.
+- **Point and click setup** — the screen dims and shows a crosshair with live X/Y coordinates; just click where you want the auto clicks to land. Works with multiple monitors.
+- **Flexible timing** — click every few seconds, minutes or hours, add a little randomness, and stop automatically after a number of clicks.
+- **Any click** — left, right or middle button, single or double click.
+- **Stays out of your way** — puts the cursor back where it was after each click, keeps the computer from sleeping, and keeps running from the system tray when you close the window.
+- **Emergency stop** — move the mouse to the top-left corner of the screen, or press `Ctrl+Enter` (`⌘↩` on Mac).
+- **Light, dark or system theme.**
+- **Remembers your settings** for next time.
 
-## Cài đặt
+## Download
 
-### Cách 1: tải bản dựng sẵn (không cần Python)
+Get the latest version from the **[Releases page](https://github.com/khaid2849/auto_clicker/releases)**:
 
-Vào trang [Releases](https://github.com/khaid2849/auto_clicker/releases), tải file đúng hệ điều hành:
-
-| Hệ điều hành | File | Cách mở |
+| System | File | How to open |
 |---|---|---|
-| Windows | `AutoClicker-windows-x64.zip` | Giải nén, chạy `AutoClicker.exe`. Nếu SmartScreen chặn: **More info → Run anyway** |
-| macOS (Apple Silicon) | `AutoClicker-macos-arm64.zip` | Giải nén, kéo `AutoClicker.app` vào Applications. Lần đầu: chuột phải → **Open** (app chưa ký) |
-| Linux | `AutoClicker-linux-x64.tar.gz` | `tar xzf AutoClicker-linux-x64.tar.gz && ./AutoClicker/AutoClicker` |
+| Windows 10 / 11 | `AutoClicker-windows-x64.zip` | Unzip and run `AutoClicker.exe`. If Windows SmartScreen appears, click **More info → Run anyway**. |
+| macOS (Apple Silicon) | `AutoClicker-macos-arm64.zip` | Unzip and drag `AutoClicker.app` to **Applications**. The first time, right-click the app and choose **Open**. |
+| Linux | `AutoClicker-linux-x64.tar.gz` | Extract it and run `AutoClicker/AutoClicker`. See [Linux notes](#linux). |
 
-### Cách 2: chạy từ mã nguồn (giống nhau cho mọi hệ điều hành)
+## How to use
 
-Cần Python 3.9 trở lên.
+1. Click **🎯 Pick position on screen**, then click the spot you want to auto-click. Press **Show point** to double-check it.
+2. Set **Click every** (3 minutes by default) and any other options you like.
+3. Press **▶ Start**. The big timer counts down to the next click.
+4. Press **■ Stop** when you're done, or use the emergency stop.
 
-```bash
-git clone https://github.com/khaid2849/auto_clicker.git
-cd auto_clicker
-python3 -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install .
-autoclicker                      # hoặc: python -m autoclicker
-```
+You can close the window while it's running — Auto Clicker keeps going in the background. Reopen it from its icon in the system tray (menu bar on Mac).
 
-`pip` tự cài đúng thư viện cho hệ điều hành của bạn (pyobjc trên macOS, python-xlib và jeepney trên Linux; Windows chỉ cần PySide6).
+## Browser extension (Chrome & Edge)
 
-**Ubuntu**: thay vì các bước trên, chạy một lệnh để có sẵn icon trong menu ứng dụng và tự cấu hình Wayland:
+The extension clicks a button — or a fixed spot — **inside a web page** on a schedule. It works in Chrome, Edge and other Chromium browsers such as Brave, Opera and Vivaldi, and doesn't need the desktop app to run.
 
-```bash
-./scripts/install_linux.sh       # gỡ: ./scripts/uninstall_linux.sh
-```
+**Install it**
 
-### Cách 3: tự đóng gói thành app
+1. In the desktop app, click **🧩 Browser extension → Create and open folder**. This puts the extension in `Documents/AutoClicker Extension`.
+   *Not using the desktop app?* Download this repository (**Code → Download ZIP**), unzip it and use the folder `src/autoclicker/browser_extension`.
+2. Open `chrome://extensions` (in Edge: `edge://extensions`) and turn on **Developer mode**.
+3. Click **Load unpacked** and choose the folder from step 1.
+4. Pin **Auto Clicker** to your toolbar from the puzzle-piece 🧩 menu.
 
-```bash
-pip install ".[build]"
-python scripts/build.py
-```
+Keep the folder where it is — the browser loads the extension from it.
 
-Kết quả trong `dist/`: `AutoClicker.app` trên macOS, `AutoClicker.exe` (một file duy nhất) trên Windows, thư mục `AutoClicker/` trên Linux. Muốn có app cho hệ điều hành nào thì chạy lệnh trên chính hệ điều hành đó.
+**Use it**
 
-## Extension cho Chrome / Edge
+1. Open the page you want to click on and click the Auto Clicker icon.
+2. Click **🎯 Pick on page**, then click the button you want to auto-click.
+3. Open the Auto Clicker icon again, set the timing and press **▶ Start**.
 
-Extension tự click vào **một nút trong trang web** (chọn bằng chuột, lưu dạng CSS selector) hoặc **một vị trí trong khung nhìn**, theo chu kỳ, kể cả khi tab đang ở nền. Dùng được cho Chrome, Edge và các trình duyệt nhân Chromium (Brave, Cốc Cốc, Opera). Extension chạy độc lập, không cần mở app desktop.
+The icon shows how many clicks have been made. Your pick is remembered for each website. The first time you start on a site, the browser asks for permission to access it — allow it so clicking continues after the page reloads.
 
-**Cài đặt** (Chrome/Edge chỉ cho cài extension ngoài store qua chế độ Developer):
-
-1. Trong app desktop, bấm **🧩 Extension trình duyệt → Tạo và mở thư mục**. App chép extension vào `Documents/AutoClicker Extension`.
-   Không dùng app? Lấy thẳng thư mục [`src/autoclicker/browser_extension`](src/autoclicker/browser_extension) trong repo.
-2. Mở `chrome://extensions` (Edge: `edge://extensions`), bật **Developer mode**.
-3. Bấm **Load unpacked** và chọn thư mục ở bước 1.
-4. Ghim icon Auto Clicker lên thanh công cụ.
-
-**Sử dụng**: mở trang cần click → bấm icon Auto Clicker → **Chọn trên trang** → click vào nút cần auto click → mở lại icon → **Bắt đầu**. Số lần đã click hiện trên icon. Mục tiêu được nhớ theo từng trang web.
-
-Lưu ý:
-- Lần đầu bấm Bắt đầu trên một trang, trình duyệt hỏi quyền truy cập trang đó. Cấp quyền thì extension vẫn click tiếp sau khi trang tải lại.
-- Click do extension tạo là click giả lập (`isTrusted = false`). Phần lớn trang web nhận bình thường, nhưng một số trang cố tình bỏ qua loại click này; khi đó hãy dùng app desktop.
-- Không click được vào nội dung nằm trong `iframe` khác tên miền, và không chạy trên trang hệ thống (`chrome://…`) hay cửa hàng tiện ích.
-- Edge có tính năng *Sleeping tabs* có thể cho tab ngủ: hãy thêm trang vào danh sách không bao giờ ngủ (*Settings → System and performance*).
-- Cập nhật extension: bấm lại bước 1 trong app rồi bấm nút tải lại ↻ trên thẻ extension.
-
-## Lưu ý theo hệ điều hành
+## Good to know
 
 ### macOS
-macOS chỉ cho gửi click khi app có quyền **Accessibility**. Lần đầu bấm Bắt đầu, app sẽ hiện cảnh báo kèm nút **Mở cài đặt**: vào *System Settings → Privacy & Security → Accessibility* và bật **AutoClicker**. Nếu chạy từ Terminal thì bật cho **Terminal**.
-Mỗi lần build lại `.app`, chữ ký thay đổi, nên phải xóa mục cũ trong danh sách Accessibility rồi thêm lại.
+macOS only lets apps click for you after you allow it. The first time you press Start, Auto Clicker shows a message with an **Open Settings** button: go to **System Settings → Privacy & Security → Accessibility** and turn on **AutoClicker**.
 
 ### Windows
-Windows không cho app thường click vào cửa sổ đang chạy bằng quyền Administrator. Nếu cần click vào app như vậy, hãy chạy Auto Clicker bằng **Run as administrator**.
+Windows doesn't let normal apps click inside programs that run as Administrator. If you need that, right-click Auto Clicker and choose **Run as administrator**.
 
 ### Linux
-| | X11 (Ubuntu on Xorg) | Wayland (mặc định từ Ubuntu 22.04) |
-|---|---|---|
-| Cách gửi click | XTest | Chuột ảo qua `/dev/uinput` |
-| Cần cấu hình thêm | Không | `./scripts/setup_uinput.sh`, rồi đăng xuất và đăng nhập lại |
-| Xem vị trí chuột trực tiếp / trả con trỏ về chỗ cũ / dừng khẩn cấp | Có | Không (Wayland không cho app đọc vị trí chuột) |
+- On Ubuntu you may need one extra package: `sudo apt install libxcb-cursor0`
+- Ubuntu 22.04 and newer use **Wayland** by default, which needs a one-time permission. Open a terminal and run:
 
-- Qt cần gói `libxcb-cursor0`: `sudo apt install libxcb-cursor0` (`install_linux.sh` đã tự cài).
-- Trên Wayland nếu dùng nhiều màn hình mà click bị lệch, hãy chuyển sang phiên **Ubuntu on Xorg** ở màn hình đăng nhập (biểu tượng ⚙️).
+  ```bash
+  curl -fsSLO https://raw.githubusercontent.com/khaid2849/auto_clicker/main/scripts/setup_uinput.sh
+  bash setup_uinput.sh
+  ```
 
-## Cấu trúc dự án
+  Then log out and log back in.
+- On Wayland the app can't see where your mouse is, so *Move the cursor back* and the corner emergency stop are not available. If you need them, or clicks land in the wrong place on multiple monitors, choose **Ubuntu on Xorg** from the ⚙️ menu on the login screen.
 
-```
-src/autoclicker/
-├── __main__.py            # điểm vào: lệnh `autoclicker` / `python -m autoclicker`
-├── app.py                 # cửa sổ chính (dùng chung mọi hệ điều hành)
-├── overlays.py            # màn hình chọn vị trí, vòng tròn đánh dấu
-├── i18n.py                # chuỗi Tiếng Việt / English
-├── theme.py               # giao diện Sáng / Tối / Theo hệ thống
-├── extension_installer.py # hộp thoại cài extension trình duyệt
-├── common.py              # hằng số, icon, tiện ích
-├── backends/              # phần duy nhất khác nhau giữa các hệ điều hành
-│   ├── __init__.py        # tự nhận diện hệ điều hành / phiên → chọn backend
-│   ├── base.py            # interface chung: move(), click(), status()...
-│   ├── macos.py           # Quartz CGEvent + chống App Nap
-│   ├── windows.py         # SetCursorPos + SendInput (ctypes)
-│   ├── x11.py             # XTest
-│   ├── wayland.py         # chuột ảo /dev/uinput
-│   └── linux_session.py   # chống khóa màn hình qua D-Bus
-└── browser_extension/     # extension Chrome/Edge (Manifest V3)
-    ├── manifest.json
-    ├── background.js      # lịch click từng tab (chrome.alarms + setTimeout)
-    ├── inject.js          # hàm click + chế độ chọn phần tử, chèn vào trang
-    ├── popup.html/css/js  # giao diện popup
-    └── i18n.js            # chuỗi Tiếng Việt / English
-scripts/                   # build.py (PyInstaller), cài đặt Linux, cấu hình uinput
-tests/                     # pytest; tests/extension/e2e.mjs: test extension trên Chrome thật
-```
+## Troubleshooting
 
-- Thêm hệ điều hành hoặc cách click mới: viết một lớp kế thừa `backends.base.Backend` rồi đăng ký trong `backends/__init__.py`.
-- Thêm ngôn ngữ: thêm một khối chuỗi vào `i18n.py` (app) và `browser_extension/i18n.js` (extension). Test sẽ báo nếu thiếu khóa.
+**Nothing gets clicked.**
+Check the yellow warning at the top of the window — it tells you which permission is missing. On macOS that's Accessibility, on Linux/Wayland it's the one-time setup above.
 
-## Phát triển
+**The click lands in the wrong place.**
+Pick the position again with **🎯 Pick position on screen** instead of typing coordinates, then use **Show point** to check.
 
-```bash
-pip install -e ".[dev]"
-pytest
-AUTOCLICKER_BACKEND=dry autoclicker   # chạy giao diện ở chế độ mô phỏng, không click thật
-```
+**The computer went to sleep and clicking stopped.**
+Make sure **Keep the computer awake while running** is ticked.
 
-Biến môi trường `AUTOCLICKER_BACKEND` (`macos` | `windows` | `x11` | `wayland` | `dry`) dùng để ép chọn backend.
+**The extension shows "Target not found".**
+The page changed and the button is gone or was renamed. Pick it again, or switch the target to **Position**.
 
-Test extension trên Chrome thật (cần Node.js và [Chrome for Testing](https://googlechromelabs.github.io/chrome-for-testing/) hoặc Chromium, vì Chrome bản thường từ v137 không còn nạp extension qua dòng lệnh):
+**A website ignores the extension's clicks.**
+A few sites only accept clicks from a real mouse. Use the desktop app for those.
 
-```bash
-npm install --no-save puppeteer-core
-CHROME_PATH=/duong/dan/chrome node tests/extension/e2e.mjs
-```
-
-Khi đổi phiên bản, sửa cả `src/autoclicker/__init__.py` và `browser_extension/manifest.json` (có test kiểm tra hai số này khớp nhau).
-
-**Phát hành**: push một tag dạng `v*` để GitHub Actions chạy test, đóng gói app cho cả 3 hệ điều hành và tạo Release:
-
-```bash
-git tag v1.1.0 && git push origin v1.1.0
-```
+**The extension stops in Edge after a while.**
+Edge may put background tabs to sleep. Add the site to *Never put these sites to sleep* in **Settings → System and performance**.
