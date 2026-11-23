@@ -76,7 +76,8 @@ def main() -> None:
     else:
         shutil.make_archive(str(base), "gztar", DIST, NAME)
         out = DIST / NAME / NAME
-    print(f"\n✅ Done: {out}\n   Release archive: {base.name}.*")
+    # ASCII only: the Windows CI console uses cp1252 and can't print emoji
+    print(f"\nDone: {out}\n   Release archive: {base.name}.*")
 
 
 if __name__ == "__main__":
