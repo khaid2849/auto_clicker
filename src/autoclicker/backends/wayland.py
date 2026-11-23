@@ -10,11 +10,12 @@ import os
 import struct
 import time
 
+from ..i18n import tr
 from .base import Backend
 
 
 class UinputBackend(Backend):
-    name = "chuột ảo uinput"
+    name = "uinput"
     can_read_cursor = False
     PATH = "/dev/uinput"
     ABS_MAX = 65535
@@ -39,10 +40,9 @@ class UinputBackend(Backend):
 
     def status(self):
         if not os.path.exists(self.PATH):
-            return "Không thấy /dev/uinput (module uinput chưa nạp). Chạy scripts/setup_uinput.sh."
+            return tr("uinput_missing")
         if not os.access(self.PATH, os.W_OK):
-            return ("Chưa có quyền ghi /dev/uinput. Chạy scripts/setup_uinput.sh rồi đăng xuất và "
-                    "đăng nhập lại.")
+            return tr("uinput_denied")
         return None
 
     def _open(self):

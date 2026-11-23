@@ -52,8 +52,10 @@ def main() -> None:
     run([sys.executable, "-m", "autoclicker", "--export-icon", icon], env=env)
 
     # 2. PyInstaller
+    extension = SRC / "autoclicker" / "browser_extension"
     cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--windowed",
            "--name", NAME, "--paths", SRC,
+           "--add-data", f"{extension}{os.pathsep}autoclicker/browser_extension",  # cho nút "Extension trình duyệt"
            "--distpath", DIST, "--workpath", BUILD / "pyinstaller", "--specpath", BUILD]
     if sys.platform == "darwin":
         cmd += ["--icon", icon, "--osx-bundle-identifier", BUNDLE_ID]

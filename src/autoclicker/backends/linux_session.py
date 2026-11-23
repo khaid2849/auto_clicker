@@ -7,7 +7,7 @@ from jeepney.io.blocking import open_dbus_connection
 from .base import KeepAwake
 
 APP = "Auto Clicker"
-REASON = "Đang auto click"
+REASON = "Auto clicking"
 
 # (địa chỉ, method xin, chữ ký, tham số, method hủy)
 INHIBITORS = [
