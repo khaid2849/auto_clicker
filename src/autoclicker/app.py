@@ -102,9 +102,8 @@ class MainWindow(QMainWindow):
         self.warn_lbl = QLabel(wordWrap=True)
         hb.addWidget(self.warn_lbl, 1)
         if self.backend.fix_action:
-            label_key, action = self.backend.fix_action
-            fix_btn = QPushButton(tr(label_key))
-            fix_btn.clicked.connect(action)
+            fix_btn = QPushButton(tr(self.backend.fix_action[0]))
+            fix_btn.clicked.connect(self._run_fix_action)
             hb.addWidget(fix_btn)
         root.addWidget(self.warn_banner)
 
@@ -133,14 +132,14 @@ class MainWindow(QMainWindow):
         for code, name in i18n.LANGUAGES.items():
             self.lang_combo.addItem(name, code)
         self.lang_combo.setCurrentIndex(self.lang_combo.findData(i18n.current_language()))
-        self.lang_combo.currentIndexChanged.connect(lambda: self.set_language(self.lang_combo.currentData()))
+        self.lang_combo.currentIndexChanged.connect(self._on_lang_combo)
 
         self.theme_combo = QComboBox()
         self.theme_combo.setToolTip(tr("theme"))
         for mode in theme.THEMES:
             self.theme_combo.addItem({"system": "◐", "light": "☀", "dark": "☾"}[mode] + "  " + tr(f"theme_{mode}"), mode)
         self.theme_combo.setCurrentIndex(max(0, self.theme_combo.findData(self.theme_mode)))
-        self.theme_combo.currentIndexChanged.connect(lambda: self.set_theme(self.theme_combo.currentData()))
+        self.theme_combo.currentIndexChanged.connect(self._on_theme_combo)
 
         ext_btn = QPushButton(tr("browser_ext"))
         ext_btn.clicked.connect(self.open_extension_dialog)
@@ -272,10 +271,36 @@ class MainWindow(QMainWindow):
         self.tray_quit = self._tray_menu.addAction("", QApplication.quit)
         self.tray.setContextMenu(self._tray_menu)
         if not IS_MAC:  # macOS: click icon đã mở menu
-            self.tray.activated.connect(
-                lambda reason: self.show_window() if reason == QSystemTrayIcon.Trigger else None)
+            self.tray.activated.connect(self._on_tray_activated)
         self.tray.show()
         self._set_running_ui(self.running)
+
+    # ───────────── Slot ─────────────
+    # Luôn nối tín hiệu vào method của cửa sổ, KHÔNG dùng lambda/partial: với lambda, PySide tạo thêm
+    # một QObject trung gian giữ tham chiếu vòng tới self, và lúc Python thoát các đối tượng này bị hủy
+    # sai thứ tự -> "shared QObject was deleted directly" rồi crash (SIGABRT/SIGBUS).
+    def _on_lang_combo(self, _index: int):
+        self.set_language(self.lang_combo.currentData())
+
+    def _on_theme_combo(self, _index: int):
+        self.set_theme(self.theme_combo.currentData())
+
+    def _on_tray_activated(self, reason):
+        if reason == QSystemTrayIcon.Trigger:
+            self.show_window()
+
+    def _on_ext_dialog_finished(self, _result: int):
+        self._ext_dialog = None
+
+    def _run_fix_action(self):
+        self.backend.fix_action[1]()
+
+    def _on_instance_ping(self):
+        """Một bản app khác vừa mở: hiện cửa sổ của bản đang chạy."""
+        server = self.sender()
+        while server.hasPendingConnections():
+            server.nextPendingConnection().deleteLater()
+        self.show_window()
 
     # ───────────── Ngôn ngữ / giao diện ─────────────
     def set_language(self, code: str):
@@ -325,7 +350,7 @@ class MainWindow(QMainWindow):
         from .extension_installer import ExtensionDialog
         if self._ext_dialog is None:
             self._ext_dialog = ExtensionDialog(self)
-            self._ext_dialog.finished.connect(lambda *_: setattr(self, "_ext_dialog", None))
+            self._ext_dialog.finished.connect(self._on_ext_dialog_finished)
         self._ext_dialog.show()
         self._ext_dialog.raise_()
         self._ext_dialog.activateWindow()
@@ -570,9 +595,9 @@ def run(argv: list[str]) -> int:
 
     window = MainWindow()
     QLocalServer.removeServer(SOCKET_NAME)
-    server = QLocalServer()
+    server = QLocalServer(window)
     server.listen(SOCKET_NAME)
-    server.newConnection.connect(lambda: (server.nextPendingConnection(), window.show_window()))
+    server.newConnection.connect(window._on_instance_ping)
     if IS_MAC:
         reopen = _ReopenOnActivate(window)
         app.installEventFilter(reopen)
