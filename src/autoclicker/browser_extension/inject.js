@@ -1,10 +1,10 @@
-// Các hàm ở đây được chrome.scripting.executeScript CHÉP NGUYÊN VĂN vào trang web,
-// nên mỗi hàm phải tự đủ: không dùng biến, hàm hay import nào bên ngoài thân hàm.
+// chrome.scripting.executeScript COPIES these functions verbatim into the web page,
+// so each one must be self-contained: no variables, functions or imports from outside its body.
 
 /**
- * Click vào mục tiêu bằng chuỗi sự kiện chuột giống người dùng thật
+ * Click the target with the same event sequence a real user produces
  * (pointerdown → mousedown → pointerup → mouseup → click).
- * target: { mode: "element", selector } | { mode: "point", x, y }  (x, y theo khung nhìn)
+ * target: { mode: "element", selector } | { mode: "point", x, y }  (x, y in the viewport)
  */
 export function performClick(target, button = "left", clicks = 1) {
   let el = null;
@@ -57,8 +57,9 @@ export function performClick(target, button = "left", clicks = 1) {
 }
 
 /**
- * Chế độ chọn mục tiêu: tô sáng phần tử dưới chuột, hiện CSS selector + tọa độ; click để chọn, Esc để hủy.
- * Kết quả gửi về service worker: { type: "picked", target: { selector, x, y, label } }.
+ * Target picker: highlights the element under the cursor and shows its CSS selector + coordinates;
+ * click to pick, Esc to cancel.
+ * The result is sent to the service worker: { type: "picked", target: { selector, x, y, label } }.
  */
 export function startPicker(strings) {
   if (window.__autoClickerPicking) return;
@@ -74,7 +75,7 @@ export function startPicker(strings) {
     }
   };
 
-  // CSS selector ngắn nhất mà vẫn trỏ đúng một phần tử; ưu tiên id / thuộc tính ổn định
+  // Shortest CSS selector that still matches exactly this element; prefers ids / stable attributes
   function cssPath(el) {
     if (el.id && isUnique(el, `#${esc(el.id)}`)) return `#${esc(el.id)}`;
     for (const attr of ["data-testid", "data-test", "data-qa", "name", "aria-label", "title"]) {
@@ -109,7 +110,7 @@ export function startPicker(strings) {
     return `<${el.localName}>${text ? ` “${text.slice(0, 40)}${text.length > 40 ? "…" : ""}”` : ""}`;
   }
 
-  // Giao diện chọn nằm trong shadow DOM để CSS của trang không ảnh hưởng
+  // The picker UI lives in a shadow DOM so the page's CSS can't affect it
   const host = document.createElement("div");
   host.style.cssText = "all: initial; position: fixed; inset: 0; z-index: 2147483647; pointer-events: none;";
   const root = host.attachShadow({ mode: "closed" });

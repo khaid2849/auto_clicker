@@ -1,32 +1,27 @@
-"""Đa ngôn ngữ, theme và extension trình duyệt."""
+"""UI strings, theme and the browser extension."""
 import json
 import re
 from pathlib import Path
 
 from autoclicker import __version__, i18n
 
-EXT_DIR = Path(__file__).resolve().parent.parent / "src" / "autoclicker" / "browser_extension"
+ROOT = Path(__file__).resolve().parent.parent
+EXT_DIR = ROOT / "src" / "autoclicker" / "browser_extension"
 
 
-def test_desktop_languages_have_same_keys():
-    keys = {lang: set(d) for lang, d in i18n.STRINGS.items()}
-    assert keys["vi"] == keys["en"]
-    assert set(i18n.LANGUAGES) == set(i18n.STRINGS)
-
-
-def test_tr_formats_and_falls_back():
-    i18n.set_language("vi")
-    assert i18n.tr("clicks", n=5) == "Đã click: 5"
-    i18n.set_language("en")
+def test_tr_formats_and_falls_back_to_key():
     assert i18n.tr("clicks", n=5) == "Clicks: 5"
-    assert i18n.set_language("xx") == i18n.DEFAULT  # ngôn ngữ lạ -> mặc định
+    assert i18n.tr("no-such-key") == "no-such-key"
 
 
-def test_extension_languages_have_same_keys():
-    src = (EXT_DIR / "i18n.js").read_text(encoding="utf-8")
-    vi_block, en_block = re.search(r"vi: \{(.*?)\n  \},\n  en: \{(.*?)\n  \},", src, re.S).groups()
-    keys = lambda block: set(re.findall(r"^\s+(\w+):", block, re.M))  # noqa: E731
-    assert keys(vi_block) == keys(en_block)
+def test_every_tr_key_exists():
+    used = set()
+    for path in (ROOT / "src" / "autoclicker").rglob("*.py"):
+        if path.name == "i18n.py":  # its docstring contains a tr("key", ...) example
+            continue
+        used |= set(re.findall(r'\btr\(\s*f?["\']([a-z0-9_]+)["\']', path.read_text(encoding="utf-8")))
+    used.discard("theme_")  # built as f"theme_{mode}"
+    assert not used - set(i18n.STRINGS)
 
 
 def test_extension_manifest_matches_package_version():
@@ -42,29 +37,16 @@ def test_export_extension(qapp, tmp_path):
     dest = export_extension(tmp_path / "ext")
     assert (dest / "manifest.json").is_file()
     assert (dest / "icons" / "icon128.png").is_file()
-    export_extension(dest)  # chạy lại (cập nhật) không lỗi
+    export_extension(dest)  # running it again (update) works
 
 
-def test_language_switch_keeps_state(qapp):
+def test_theme_combo_and_palette(qapp):
+    from autoclicker import theme
     from autoclicker.app import MainWindow
     w = MainWindow()
-    w.set_language("en")
-    qapp.processEvents()
-    w.x_spin.setValue(1234)
-    w.set_language("vi")
-    qapp.processEvents()
-    assert w.x_spin.value() == 1234
-    assert w.time_box.title() == "Thời gian"
-    assert w.lang_combo.currentData() == "vi"
-    w.set_language("en")
-    qapp.processEvents()
-    assert w.time_box.title() == "Timing"
-
-
-def test_theme_palette(qapp):
-    from autoclicker import theme
-    assert theme.apply_theme("dark") is True
+    w.theme_combo.setCurrentIndex(w.theme_combo.findData("dark"))
+    assert w.theme_mode == "dark"
     assert qapp.palette().window().color().name() == "#1f2023"
     assert theme.apply_theme("light") is False
     assert qapp.palette().window().color().name() == "#f3f4f6"
-    assert "@" not in theme.stylesheet(True)  # mọi biến màu đã được thay
+    assert "@" not in theme.stylesheet(True)  # every color variable was substituted

@@ -1,17 +1,17 @@
-// Service worker: giữ lịch click của từng tab và thực hiện click.
+// Service worker: keeps the click schedule of each tab and performs the clicks.
 //
-// Trạng thái nằm trong chrome.storage.session (mất khi tắt trình duyệt) vì service worker MV3
-// có thể bị dừng bất cứ lúc nào. Lịch hẹn dùng hai lớp:
-//   - chrome.alarms: đánh thức service worker kể cả khi nó đã ngủ (bản đóng gói tối thiểu 30 giây);
-//   - setTimeout: cho khoảng ngắn khi service worker đang thức.
-// Hai lớp có thể cùng kích hoạt; fire() kiểm tra nextAt nên không click trùng.
+// State lives in chrome.storage.session (cleared when the browser closes) because an MV3 service
+// worker can be stopped at any time. Scheduling uses two layers:
+//   - chrome.alarms: wakes the service worker even if it was stopped (30 s minimum when packed);
+//   - setTimeout: for short delays while the service worker is awake.
+// Both may fire for the same click; fire() checks nextAt so nothing is clicked twice.
 import { performClick } from "./inject.js";
 
 const ALARM_PREFIX = "click:";
 const SHORT_MS = 25_000;
 const timers = new Map();
 
-// Xếp hàng các thao tác đọc-sửa-ghi storage để không giẫm lên nhau
+// Serialize read-modify-write storage operations so they don't overwrite each other
 let queue = Promise.resolve();
 function locked(fn) {
   const run = queue.then(fn);
@@ -60,11 +60,11 @@ async function updateBadge(tabId, job) {
     await chrome.action.setBadgeBackgroundColor({ tabId, color: job?.lastError ? "#d97706" : "#16a34a" });
     await chrome.action.setBadgeText({ tabId, text: job ? (job.count ? String(job.count) : "ON") : "" });
   } catch {
-    // tab đã đóng
+    // the tab was closed
   }
 }
 
-// Gọi bên trong locked()
+// Call inside locked()
 async function finish(tabId, reason, count = 0) {
   await unschedule(tabId);
   await setJob(tabId, null);
@@ -109,7 +109,7 @@ function fire(tabId) {
     const job = (await getJobs())[tabId];
     if (!job) return;
     if (Date.now() < job.nextAt - 250) {
-      schedule(job); // bị đánh thức sớm hoặc trùng
+      schedule(job); // woken up early or twice
       return;
     }
     let result;
@@ -149,7 +149,7 @@ async function savePicked(sender, target) {
   const { targets = {} } = await chrome.storage.local.get("targets");
   targets[origin] = target;
   await chrome.storage.local.set({ targets });
-  // Mở lại popup để người dùng bấm Bắt đầu luôn (không được thì trang đã có thông báo hướng dẫn)
+  // Reopen the popup so the user can press Start right away (if not allowed, the page shows a hint)
   chrome.action.openPopup?.().catch(() => {});
   return { ok: true };
 }
@@ -163,7 +163,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const handler = handlers[msg?.type];
   if (!handler) return false;
   handler().then(sendResponse, (e) => sendResponse({ ok: false, error: String(e?.message || e) }));
-  return true; // trả lời bất đồng bộ
+  return true; // respond asynchronously
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -178,7 +178,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   });
 });
 
-// Service worker vừa (khởi động lại): nối lại lịch của các tab đang chạy
+// The service worker just (re)started: resume the schedules of running tabs
 locked(async () => {
   for (const job of Object.values(await getJobs())) schedule(job);
 });

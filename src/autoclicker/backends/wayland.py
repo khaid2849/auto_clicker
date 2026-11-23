@@ -1,7 +1,7 @@
-"""Linux Wayland: tạo chuột ảo tọa độ tuyệt đối qua /dev/uinput (ioctl thuần, không cần thư viện C).
+"""Linux Wayland: an absolute-position virtual mouse via /dev/uinput (plain ioctl, no C library needed).
 
-Wayland không cho ứng dụng đọc vị trí chuột toàn cục hay tự gửi sự kiện, nên đi qua kernel.
-Cần quyền ghi /dev/uinput: chạy scripts/setup_uinput.sh (hoặc scripts/install_linux.sh).
+Wayland doesn't let applications read the global cursor position or inject events, so we go through the kernel.
+Needs write access to /dev/uinput: run scripts/setup_uinput.sh (or scripts/install_linux.sh).
 """
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ class UinputBackend(Backend):
         os.write(fd, dev)
         fcntl.ioctl(fd, self.UI_DEV_CREATE)
         self.fd = fd
-        time.sleep(0.6)  # đợi compositor nhận thiết bị mới
+        time.sleep(0.6)  # give the compositor time to pick up the new device
 
     def _emit(self, etype, code, value):
         os.write(self.fd, struct.pack(self.EVENT_FMT, 0, 0, etype, code, value))
@@ -72,7 +72,7 @@ class UinputBackend(Backend):
 
     @staticmethod
     def _desktop_bounds():
-        """Hình chữ nhật bao mọi màn hình (tọa độ logic) — compositor map trục ABS lên vùng này."""
+        """Bounding box of all screens (logical coordinates) — the compositor maps the ABS axes onto it."""
         from PySide6.QtCore import QRect
         from PySide6.QtGui import QGuiApplication
         rect = QRect()
