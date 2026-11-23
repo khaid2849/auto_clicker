@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Auto Clicker</title>
+  <link rel="stylesheet" href="popup.css">
+  <script type="module" src="popup.js"></script>
+</head>
+<body>
+  <header>
+    <img src="icons/icon32.png" width="20" height="20" alt="">
+    <h1>Auto Clicker</h1>
+  </header>
+
+  <p id="restricted" class="warn" data-i18n="restricted" hidden></p>
+
+  <main id="main">
+    <section class="settings">
+      <h2 data-i18n="target"></h2>
+      <div class="seg" role="radiogroup">
+        <label><input type="radio" name="mode" value="element" checked><span data-i18n="mode_element"></span></label>
+        <label><input type="radio" name="mode" value="point"><span data-i18n="mode_point"></span></label>
+      </div>
+      <div id="targetInfo" class="target"></div>
+      <button id="pick" class="secondary" data-i18n="pick"></button>
+    </section>
+
+    <section class="settings">
+      <h2 data-i18n="timing"></h2>
+      <div class="row">
+        <label for="interval" data-i18n="every"></label>
+        <input id="interval" type="number" min="1" value="3">
+        <select id="unit">
+          <option value="1" data-i18n="unit_s"></option>
+          <option value="60" data-i18n="unit_m"></option>
+          <option value="3600" data-i18n="unit_h"></option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="jitter" data-i18n="jitter"></label>
+        <input id="jitter" type="number" min="0" value="0">
+        <span class="unit" data-i18n="sec"></span>
+      </div>
+      <div class="row">
+        <label for="repeat" data-i18n="stop_after"></label>
+        <input id="repeat" type="number" min="0" value="0">
+        <span class="unit" data-i18n="times"></span>
+      </div>
+      <label class="check"><input id="clickNow" type="checkbox"><span data-i18n="click_now"></span></label>
+    </section>
+
+    <section class="settings">
+      <h2 data-i18n="click_type"></h2>
+      <div class="row">
+        <label for="button" data-i18n="button"></label>
+        <select id="button">
+          <option value="left" data-i18n="left"></option>
+          <option value="right" data-i18n="right"></option>
+          <option value="middle" data-i18n="middle"></option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="clicks" data-i18n="kind"></label>
+        <select id="clicks">
+          <option value="1" data-i18n="single"></option>
+          <option value="2" data-i18n="double"></option>
+        </select>
+      </div>
+    </section>
+
+    <section class="status">
+      <div class="state"><span id="dot" class="dot"></span><span id="stateText"></span><span id="count" class="count"></span></div>
+      <div class="next" data-i18n="next"></div>
+      <div id="countdown" class="countdown">--:--</div>
+      <div id="message" class="message" hidden></div>
+      <button id="toggle" class="primary"></button>
+    </section>
+
+    <p class="note" data-i18n="note"></p>
+  </main>
+
+  <footer>
+    <label>🌐 <select id="lang" aria-label="Language"></select></label>
+    <label>🎨 <select id="theme" aria-label="Theme"></select></label>
+  </footer>
+</body>
+</html>

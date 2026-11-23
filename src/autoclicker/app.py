@@ -8,7 +8,7 @@ import sys
 import time
 from datetime import datetime
 
-from PySide6.QtCore import QEvent, QObject, QPoint, QSettings, Qt, QTimer
+from PySide6.QtCore import QEvent, QLocale, QObject, QPoint, QSettings, Qt, QTimer
 from PySide6.QtGui import QCursor, QGuiApplication, QIcon, QKeySequence, QShortcut
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import (
@@ -17,30 +17,18 @@ from PySide6.QtWidgets import (
     QSpinBox, QSystemTrayIcon, QVBoxLayout, QWidget,
 )
 
-from . import __version__, backends
+from . import __version__, backends, i18n, theme
 from .backends import DryBackend
 from .common import APP_ID, APP_NAME, ORG_NAME, fmt_duration, make_icon, mono_font
+from .i18n import tr
 from .overlays import PositionPicker, TargetMarker
 
 IS_MAC = backends.KIND == "macos"
 SHORTCUT_LABEL = "⌘↩" if IS_MAC else "Ctrl+Enter"
 
-STYLE = """
-#warnBanner { background: #fff4e5; border: 1px solid #f5c26b; border-radius: 8px; }
-#warnBanner QLabel { color: #7a4b00; }
-#statusCard { border: 1px solid palette(mid); border-radius: 10px; }
-#startBtn { font-size: 12pt; font-weight: 600; padding: 9px; border-radius: 8px;
-            color: white; background: #16a34a; border: none; }
-#startBtn:hover { background: #15803d; }
-#startBtn[running="true"] { background: #dc2626; }
-#startBtn[running="true"]:hover { background: #b91c1c; }
-#backendLbl { color: gray; font-size: 8pt; }
-QGroupBox { font-weight: 600; }
-"""
-
-UNITS = [("giây", 1), ("phút", 60), ("giờ", 3600)]
-BUTTONS = [("Trái", "left"), ("Phải", "right"), ("Giữa", "middle")]
-CLICK_TYPES = [("Click đơn", 1), ("Click đôi", 2)]
+UNITS = [("unit_s", 1), ("unit_m", 60), ("unit_h", 3600)]
+BUTTONS = [("btn_left", "left"), ("btn_right", "right"), ("btn_middle", "middle")]
+CLICK_TYPES = [("single", 1), ("double", 2)]
 
 
 def make_settings() -> QSettings:
@@ -48,25 +36,36 @@ def make_settings() -> QSettings:
     return QSettings(path, QSettings.IniFormat) if path else QSettings(ORG_NAME, "AutoClicker")
 
 
+def system_language() -> str:
+    return "vi" if QLocale.system().language() == QLocale.Vietnamese else "en"
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(APP_NAME)
         self.setWindowIcon(QIcon(make_icon()))
-        self.setStyleSheet(STYLE)
 
         self.settings = make_settings()
+        i18n.set_language(self.settings.value("language", system_language()))
+        self.theme_mode = self.settings.value("theme", "system")
+        self._applying_theme = False
+
         self.backend = backends.create_backend()
         self.keepawake = backends.create_keepawake()
         self.running = False
         self.count = 0
         self.next_at = 0.0
         self._marker = None
+        self._ext_dialog = None
         self.tray = None
 
         self.picker = PositionPicker(self)
         self.picker.picked.connect(self._on_picked)
         self.picker.finished.connect(self.show_window)
+
+        self._apply_theme()
+        QGuiApplication.styleHints().colorSchemeChanged.connect(self._on_system_scheme_changed)
 
         self._build_ui()
         self._load_settings()
@@ -93,17 +92,18 @@ class MainWindow(QMainWindow):
     def _build_ui(self):
         central = QWidget()
         root = QVBoxLayout(central)
-        root.setContentsMargins(14, 14, 14, 14)
+        root.setContentsMargins(14, 12, 14, 14)
         root.setSpacing(10)
+
+        root.addLayout(self._build_top_bar())
 
         self.warn_banner = QFrame(objectName="warnBanner")
         hb = QHBoxLayout(self.warn_banner)
         self.warn_lbl = QLabel(wordWrap=True)
         hb.addWidget(self.warn_lbl, 1)
         if self.backend.fix_action:
-            label, action = self.backend.fix_action
-            fix_btn = QPushButton(label)
-            fix_btn.clicked.connect(action)
+            fix_btn = QPushButton(tr(self.backend.fix_action[0]))
+            fix_btn.clicked.connect(self._run_fix_action)
             hb.addWidget(fix_btn)
         root.addWidget(self.warn_banner)
 
@@ -119,14 +119,41 @@ class MainWindow(QMainWindow):
         self.log_view.setFixedHeight(self.log_view.fontMetrics().lineSpacing() * 6 + 12)
         root.addWidget(self.log_view)
 
-        self.setCentralWidget(central)
+        self.setCentralWidget(central)  # widget cũ (nếu có) bị Qt tự xóa
         # Rộng theo cỡ chữ, để vẫn vừa khi màn hình scale 125–200%
-        self.setMinimumWidth(self.fontMetrics().averageCharWidth() * 58)
+        self.setMinimumWidth(self.fontMetrics().averageCharWidth() * 60)
         self.resize(self.minimumWidth(), self.sizeHint().height())
-        self._set_running_ui(False)
+        self._set_running_ui(self.running)
+
+    def _build_top_bar(self) -> QHBoxLayout:
+        row = QHBoxLayout()
+        self.lang_combo = QComboBox()
+        self.lang_combo.setToolTip(tr("language"))
+        for code, name in i18n.LANGUAGES.items():
+            self.lang_combo.addItem(name, code)
+        self.lang_combo.setCurrentIndex(self.lang_combo.findData(i18n.current_language()))
+        self.lang_combo.currentIndexChanged.connect(self._on_lang_combo)
+
+        self.theme_combo = QComboBox()
+        self.theme_combo.setToolTip(tr("theme"))
+        for mode in theme.THEMES:
+            self.theme_combo.addItem({"system": "◐", "light": "☀", "dark": "☾"}[mode] + "  " + tr(f"theme_{mode}"), mode)
+        self.theme_combo.setCurrentIndex(max(0, self.theme_combo.findData(self.theme_mode)))
+        self.theme_combo.currentIndexChanged.connect(self._on_theme_combo)
+
+        ext_btn = QPushButton(tr("browser_ext"))
+        ext_btn.clicked.connect(self.open_extension_dialog)
+
+        row.addWidget(QLabel("🌐"))
+        row.addWidget(self.lang_combo)
+        row.addSpacing(6)
+        row.addWidget(self.theme_combo)
+        row.addStretch()
+        row.addWidget(ext_btn)
+        return row
 
     def _build_position_box(self) -> QGroupBox:
-        box = QGroupBox("Vị trí click")
+        box = QGroupBox(tr("pos_box"))
         g = QGridLayout(box)
         self.x_spin, self.y_spin = QSpinBox(), QSpinBox()
         for sp in (self.x_spin, self.y_spin):
@@ -137,10 +164,10 @@ class MainWindow(QMainWindow):
         g.addWidget(self.x_spin, 0, 1)
         g.addWidget(QLabel("Y"), 0, 2)
         g.addWidget(self.y_spin, 0, 3)
-        self.pick_btn = QPushButton("🎯  Chọn vị trí trên màn hình")
+        self.pick_btn = QPushButton(tr("pick"))
         self.pick_btn.clicked.connect(self.start_pick)
-        self.show_btn = QPushButton("Hiện điểm")
-        self.show_btn.setToolTip("Nháy vòng tròn đỏ tại vị trí sẽ click")
+        self.show_btn = QPushButton(tr("show_point"))
+        self.show_btn.setToolTip(tr("show_point_tip"))
         self.show_btn.clicked.connect(self.show_target)
         g.addWidget(self.pick_btn, 1, 0, 1, 3)
         g.addWidget(self.show_btn, 1, 3)
@@ -152,51 +179,51 @@ class MainWindow(QMainWindow):
         return box
 
     def _build_time_box(self) -> QGroupBox:
-        box = QGroupBox("Thời gian")
+        box = QGroupBox(tr("time_box"))
         f = QFormLayout(box)
         row = QHBoxLayout()
         self.interval_spin = QSpinBox()
         self.interval_spin.setRange(1, 99999)
         self.unit_combo = QComboBox()
-        for name, mult in UNITS:
-            self.unit_combo.addItem(name, mult)
+        for key, mult in UNITS:
+            self.unit_combo.addItem(tr(key), mult)
         row.addWidget(self.interval_spin, 1)
         row.addWidget(self.unit_combo)
-        f.addRow("Click mỗi", row)
+        f.addRow(tr("every"), row)
         self.jitter_spin = QSpinBox()
         self.jitter_spin.setRange(0, 3600)
-        self.jitter_spin.setSuffix(" giây")
-        self.jitter_spin.setToolTip("Cộng/trừ ngẫu nhiên vào chu kỳ để không quá đều")
-        f.addRow("Ngẫu nhiên ±", self.jitter_spin)
+        self.jitter_spin.setSuffix(tr("suffix_s"))
+        self.jitter_spin.setToolTip(tr("jitter_tip"))
+        f.addRow(tr("jitter"), self.jitter_spin)
         self.repeat_spin = QSpinBox()
         self.repeat_spin.setRange(0, 1_000_000)
-        self.repeat_spin.setSpecialValueText("Không giới hạn")
-        self.repeat_spin.setSuffix(" lần")
-        f.addRow("Dừng sau", self.repeat_spin)
-        self.click_now_cb = QCheckBox("Click ngay khi bấm Bắt đầu")
+        self.repeat_spin.setSpecialValueText(tr("unlimited"))
+        self.repeat_spin.setSuffix(tr("suffix_times"))
+        f.addRow(tr("stop_after"), self.repeat_spin)
+        self.click_now_cb = QCheckBox(tr("click_now"))
         f.addRow(self.click_now_cb)
         self.time_box = box
         return box
 
     def _build_click_box(self) -> QGroupBox:
-        box = QGroupBox("Kiểu click")
+        box = QGroupBox(tr("click_box"))
         f = QFormLayout(box)
         self.button_combo = QComboBox()
-        for name, val in BUTTONS:
-            self.button_combo.addItem(name, val)
+        for key, val in BUTTONS:
+            self.button_combo.addItem(tr(key), val)
         self.type_combo = QComboBox()
-        for name, val in CLICK_TYPES:
-            self.type_combo.addItem(name, val)
+        for key, val in CLICK_TYPES:
+            self.type_combo.addItem(tr(key), val)
         self.pos_jitter_spin = QSpinBox()
         self.pos_jitter_spin.setRange(0, 200)
         self.pos_jitter_spin.setSuffix(" px")
-        self.pos_jitter_spin.setToolTip("Lệch ngẫu nhiên quanh điểm click")
-        f.addRow("Nút chuột", self.button_combo)
-        f.addRow("Loại", self.type_combo)
-        f.addRow("Lệch vị trí ±", self.pos_jitter_spin)
-        self.restore_cb = QCheckBox("Trả con trỏ về chỗ cũ sau khi click")
-        self.awake_cb = QCheckBox("Không ngủ / khóa màn hình khi đang chạy")
-        self.failsafe_cb = QCheckBox("Dừng khẩn cấp khi đưa chuột vào góc trên-trái")
+        self.pos_jitter_spin.setToolTip(tr("pos_jitter_tip"))
+        f.addRow(tr("mouse_button"), self.button_combo)
+        f.addRow(tr("click_kind"), self.type_combo)
+        f.addRow(tr("pos_jitter"), self.pos_jitter_spin)
+        self.restore_cb = QCheckBox(tr("restore"))
+        self.awake_cb = QCheckBox(tr("keep_awake"))
+        self.failsafe_cb = QCheckBox(tr("failsafe"))
         for cb in (self.restore_cb, self.awake_cb, self.failsafe_cb):
             f.addRow(cb)
         self.click_box = box
@@ -212,7 +239,7 @@ class MainWindow(QMainWindow):
         top.addStretch()
         top.addWidget(self.count_lbl)
         v.addLayout(top)
-        v.addWidget(QLabel("Lần click tiếp theo sau", alignment=Qt.AlignCenter))
+        v.addWidget(QLabel(tr("next_click"), alignment=Qt.AlignCenter))
         self.countdown_lbl = QLabel("--:--", alignment=Qt.AlignCenter)
         self.countdown_lbl.setFont(mono_font(28, bold=True))
         v.addWidget(self.countdown_lbl)
@@ -220,36 +247,113 @@ class MainWindow(QMainWindow):
         self.start_btn.setCursor(Qt.PointingHandCursor)
         self.start_btn.clicked.connect(self.toggle)
         v.addWidget(self.start_btn)
-        self.backend_lbl = QLabel(objectName="backendLbl", alignment=Qt.AlignCenter)
+        self.backend_lbl = QLabel(objectName="muted", alignment=Qt.AlignCenter)
         v.addWidget(self.backend_lbl)
         return card
 
     def _apply_backend_limits(self):
-        self.backend_lbl.setText(f"v{__version__}  ·  {backends.PLATFORM_LABEL}  ·  click qua {self.backend.name}")
+        self.backend_lbl.setText(tr("backend_info", v=__version__, platform=backends.platform_label(),
+                                    backend=self.backend.name))
         if not self.backend.can_read_cursor:
-            tip = "Wayland không cho ứng dụng đọc vị trí chuột, nên tùy chọn này không dùng được."
             for cb in (self.restore_cb, self.failsafe_cb):
                 cb.setChecked(False)
                 cb.setEnabled(False)
-                cb.setToolTip(tip)
+                cb.setToolTip(tr("wayland_tip"))
 
     def _build_tray(self):
         if not QSystemTrayIcon.isSystemTrayAvailable():
             return
         self.tray = QSystemTrayIcon(QIcon(make_icon(64)), self)
-        menu = QMenu()
-        self.tray_toggle = menu.addAction("Bắt đầu", self.toggle)
-        menu.addAction("Hiện cửa sổ", self.show_window)
-        menu.addSeparator()
-        menu.addAction("Thoát", QApplication.quit)
-        self.tray.setContextMenu(menu)
-        self.tray.setToolTip(APP_NAME)
+        self._tray_menu = QMenu()
+        self.tray_toggle = self._tray_menu.addAction("", self.toggle)
+        self.tray_show = self._tray_menu.addAction("", self.show_window)
+        self._tray_menu.addSeparator()
+        self.tray_quit = self._tray_menu.addAction("", QApplication.quit)
+        self.tray.setContextMenu(self._tray_menu)
         if not IS_MAC:  # macOS: click icon đã mở menu
-            self.tray.activated.connect(
-                lambda reason: self.show_window() if reason == QSystemTrayIcon.Trigger else None)
+            self.tray.activated.connect(self._on_tray_activated)
         self.tray.show()
-        self._tray_menu = menu
         self._set_running_ui(self.running)
+
+    # ───────────── Slot ─────────────
+    # Luôn nối tín hiệu vào method của cửa sổ, KHÔNG dùng lambda/partial: với lambda, PySide tạo thêm
+    # một QObject trung gian giữ tham chiếu vòng tới self, và lúc Python thoát các đối tượng này bị hủy
+    # sai thứ tự -> "shared QObject was deleted directly" rồi crash (SIGABRT/SIGBUS).
+    def _on_lang_combo(self, _index: int):
+        self.set_language(self.lang_combo.currentData())
+
+    def _on_theme_combo(self, _index: int):
+        self.set_theme(self.theme_combo.currentData())
+
+    def _on_tray_activated(self, reason):
+        if reason == QSystemTrayIcon.Trigger:
+            self.show_window()
+
+    def _on_ext_dialog_finished(self, _result: int):
+        self._ext_dialog = None
+
+    def _run_fix_action(self):
+        self.backend.fix_action[1]()
+
+    def _on_instance_ping(self):
+        """Một bản app khác vừa mở: hiện cửa sổ của bản đang chạy."""
+        server = self.sender()
+        while server.hasPendingConnections():
+            server.nextPendingConnection().deleteLater()
+        self.show_window()
+
+    # ───────────── Ngôn ngữ / giao diện ─────────────
+    def set_language(self, code: str):
+        if code == i18n.current_language():
+            return
+        i18n.set_language(code)
+        self.settings.setValue("language", code)
+        QTimer.singleShot(0, self._retranslate)  # không xóa combobox ngay trong tín hiệu của chính nó
+
+    def _retranslate(self):
+        """Dựng lại giao diện bằng ngôn ngữ mới; giữ nguyên cài đặt, nhật ký và trạng thái đang chạy."""
+        log = self.log_view.toPlainText()
+        self._save_settings()
+        self._build_ui()
+        self._load_settings()
+        self._apply_backend_limits()
+        self._set_running_ui(self.running)
+        self._check_backend()
+        self._update_cursor_label()
+        self._update_target_label()
+        self.log_view.setPlainText(log)
+        self.log_view.verticalScrollBar().setValue(self.log_view.verticalScrollBar().maximum())
+        if self.running:
+            self._tick()
+        if self._ext_dialog:
+            self._ext_dialog.close()
+            self._ext_dialog = None
+
+    def set_theme(self, mode: str):
+        self.theme_mode = mode
+        self.settings.setValue("theme", mode)
+        self._apply_theme()
+
+    def _apply_theme(self):
+        self._applying_theme = True
+        try:
+            dark = theme.apply_theme(self.theme_mode)
+            self.setStyleSheet(theme.stylesheet(dark))
+        finally:
+            self._applying_theme = False
+
+    def _on_system_scheme_changed(self, *_):
+        if self.theme_mode == "system" and not self._applying_theme:
+            self._apply_theme()
+
+    def open_extension_dialog(self):
+        from .extension_installer import ExtensionDialog
+        if self._ext_dialog is None:
+            self._ext_dialog = ExtensionDialog(self)
+            self._ext_dialog.finished.connect(self._on_ext_dialog_finished)
+        self._ext_dialog.show()
+        self._ext_dialog.raise_()
+        self._ext_dialog.activateWindow()
 
     # ───────────── Lưu cài đặt ─────────────
     def _load_settings(self):
@@ -277,6 +381,7 @@ class MainWindow(QMainWindow):
             "click_now": self.click_now_cb.isChecked(),
             "button": self.button_combo.currentIndex(), "click_type": self.type_combo.currentIndex(),
             "pos_jitter": self.pos_jitter_spin.value(), "keep_awake": self.awake_cb.isChecked(),
+            "language": i18n.current_language(), "theme": self.theme_mode,
         }
         if self.backend.can_read_cursor:  # Wayland khóa 2 tùy chọn này -> giữ nguyên giá trị cũ
             values.update(restore=self.restore_cb.isChecked(), failsafe=self.failsafe_cb.isChecked())
@@ -292,7 +397,7 @@ class MainWindow(QMainWindow):
     def _on_picked(self, x, y):
         self.x_spin.setValue(x)
         self.y_spin.setValue(y)
-        self.log(f"Đã chọn vị trí ({x}, {y})")
+        self.log(tr("log_picked", x=x, y=y))
         self._save_settings()
         QTimer.singleShot(300, self.show_target)
 
@@ -302,19 +407,19 @@ class MainWindow(QMainWindow):
 
     def _update_cursor_label(self):
         if not self.backend.can_read_cursor:
-            self.cursor_lbl.setText("Wayland không cho đọc vị trí chuột ngoài app — dùng nút Chọn vị trí.")
+            self.cursor_lbl.setText(tr("cursor_wayland"))
             self.cursor_timer.stop()
             return
         p = QCursor.pos()
-        self.cursor_lbl.setText(f"Chuột hiện tại:  X = {p.x():<6} Y = {p.y()}")
+        self.cursor_lbl.setText(tr("cursor_now", x=p.x(), y=p.y()))
 
     def _update_target_label(self):
         scr = QGuiApplication.screenAt(QPoint(self.x_spin.value(), self.y_spin.value()))
         if scr:
             geo = scr.geometry()
-            self.target_lbl.setText(f"Điểm click trên màn hình: {scr.name()} ({geo.width()}×{geo.height()})")
+            self.target_lbl.setText(tr("target_on", name=scr.name(), w=geo.width(), h=geo.height()))
         else:
-            self.target_lbl.setText("⚠️ Tọa độ nằm ngoài mọi màn hình")
+            self.target_lbl.setText(tr("target_off"))
 
     # ───────────── Chạy / dừng ─────────────
     def toggle(self):
@@ -329,28 +434,28 @@ class MainWindow(QMainWindow):
             return
         x, y = self.x_spin.value(), self.y_spin.value()
         if QGuiApplication.screenAt(QPoint(x, y)) is None:
-            if QMessageBox.question(self, APP_NAME, "Tọa độ nằm ngoài màn hình. Vẫn chạy?") != QMessageBox.Yes:
+            if QMessageBox.question(self, APP_NAME, tr("outside_confirm")) != QMessageBox.Yes:
                 return
         self._save_settings()
         self.running = True
         self.count = 0
         self.next_at = time.monotonic() + (0 if self.click_now_cb.isChecked() else self._next_interval())
         if not self.keepawake.begin(self.awake_cb.isChecked()):
-            self.log("Không xin được chế độ chống ngủ (không sao nếu chu kỳ ngắn hơn thời gian khóa màn hình).")
+            self.log(tr("log_no_awake"))
         self._set_running_ui(True)
-        self.log(f"▶ Bắt đầu: click {self.button_combo.currentText().lower()} tại ({x}, {y}) "
-                 f"mỗi {self.interval_spin.value()} {self.unit_combo.currentText()}")
+        self.log(tr("log_start", button=self.button_combo.currentText().lower(), x=x, y=y,
+                    n=self.interval_spin.value(), unit=self.unit_combo.currentText()))
         self.tick_timer.start(200)
         self._tick()
 
-    def stop(self, reason: str = "Đã dừng"):
+    def stop(self, reason: str | None = None):
         if not self.running:
             return
         self.running = False
         self.tick_timer.stop()
         self.keepawake.end()
         self._set_running_ui(False)
-        self.log(f"■ {reason}")
+        self.log(f"■ {reason or tr('reason_stopped')}")
 
     def _next_interval(self) -> float:
         base = self.interval_spin.value() * self.unit_combo.currentData()
@@ -363,20 +468,20 @@ class MainWindow(QMainWindow):
         if self.failsafe_cb.isChecked() and self.backend.can_read_cursor:
             p = QCursor.pos()
             if p.x() <= 2 and p.y() <= 2:
-                self.stop("Dừng khẩn cấp (chuột ở góc trên-trái)")
+                self.stop(tr("reason_failsafe"))
                 return
         now = time.monotonic()
         if now >= self.next_at:
             self._do_click()
             limit = self.repeat_spin.value()
             if limit and self.count >= limit:
-                self.stop(f"Hoàn tất {self.count} lần click")
+                self.stop(tr("reason_done", n=self.count))
                 return
             self.next_at = now + self._next_interval()
         remaining = fmt_duration(self.next_at - now)
         self.countdown_lbl.setText(remaining)
         if self.tray:
-            self.tray.setToolTip(f"{APP_NAME} — click tiếp sau {remaining}")
+            self.tray.setToolTip(tr("tray_next", app=APP_NAME, t=remaining))
 
     def _do_click(self):
         x, y = self.x_spin.value(), self.y_spin.value()
@@ -390,27 +495,29 @@ class MainWindow(QMainWindow):
             if restore:
                 self.backend.move(prev.x(), prev.y())
         except Exception as e:  # noqa: BLE001
-            self.log(f"Lỗi khi click: {e}")
+            self.log(tr("log_error", e=e))
             return
         self.count += 1
-        self.count_lbl.setText(f"Đã click: {self.count}")
-        self.log(f"Click #{self.count} tại ({x}, {y})"
-                 + ("  [mô phỏng]" if isinstance(self.backend, DryBackend) else ""))
+        self.count_lbl.setText(tr("clicks", n=self.count))
+        self.log(tr("log_click", n=self.count, x=x, y=y)
+                 + (tr("log_dry") if isinstance(self.backend, DryBackend) else ""))
 
     def _set_running_ui(self, running: bool):
         for box in (self.position_box, self.time_box, self.click_box):
             box.setEnabled(not running)
-        self.start_btn.setText(f"■  Dừng   ({SHORTCUT_LABEL})" if running else f"▶  Bắt đầu   ({SHORTCUT_LABEL})")
+        self.start_btn.setText(tr("stop" if running else "start", sc=SHORTCUT_LABEL))
         self.start_btn.setProperty("running", running)
         self.start_btn.style().unpolish(self.start_btn)
         self.start_btn.style().polish(self.start_btn)
         color = "#16a34a" if running else "#9ca3af"
-        self.state_lbl.setText(f"<span style='color:{color}'>●</span> {'Đang chạy' if running else 'Đang dừng'}")
-        self.count_lbl.setText(f"Đã click: {self.count}")
+        self.state_lbl.setText(f"<span style='color:{color}'>●</span> {tr('running' if running else 'stopped')}")
+        self.count_lbl.setText(tr("clicks", n=self.count))
         if not running:
             self.countdown_lbl.setText("--:--")
         if self.tray:
-            self.tray_toggle.setText("Dừng" if running else "Bắt đầu")
+            self.tray_toggle.setText(tr("tray_stop" if running else "tray_start"))
+            self.tray_show.setText(tr("tray_show"))
+            self.tray_quit.setText(tr("tray_quit"))
             self.tray.setToolTip(APP_NAME)
 
     # ───────────── Khác ─────────────
@@ -431,8 +538,7 @@ class MainWindow(QMainWindow):
         # Đang chạy (có icon khay): đóng cửa sổ nhưng vẫn click ở nền. Đang dừng: thoát app.
         e.accept()
         if self.running and self.tray:
-            self.tray.showMessage(APP_NAME, "Vẫn đang chạy ở nền. Mở lại từ icon Auto Clicker trên khay hệ thống.",
-                                  QSystemTrayIcon.Information, 2500)
+            self.tray.showMessage(APP_NAME, tr("tray_bg"), QSystemTrayIcon.Information, 2500)
         else:
             QTimer.singleShot(0, QApplication.quit)
 
@@ -483,14 +589,15 @@ def run(argv: list[str]) -> int:
     app = QApplication(argv)
     if _notify_running_instance():
         return 0
+    app.setStyle("Fusion")  # cùng một kiểu hiển thị trên mọi hệ điều hành, đổi theme sáng/tối ổn định
     app.setQuitOnLastWindowClosed(False)
     app.setWindowIcon(QIcon(make_icon(256)))
 
     window = MainWindow()
     QLocalServer.removeServer(SOCKET_NAME)
-    server = QLocalServer()
+    server = QLocalServer(window)
     server.listen(SOCKET_NAME)
-    server.newConnection.connect(lambda: (server.nextPendingConnection(), window.show_window()))
+    server.newConnection.connect(window._on_instance_ping)
     if IS_MAC:
         reopen = _ReopenOnActivate(window)
         app.installEventFilter(reopen)

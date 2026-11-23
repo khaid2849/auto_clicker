@@ -6,6 +6,7 @@ import time
 
 import Quartz  # pyobjc-framework-Quartz
 
+from ..i18n import tr
 from .base import Backend, KeepAwake
 
 ACCESSIBILITY_URL = "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
@@ -21,7 +22,7 @@ def accessibility_trusted(prompt: bool = False) -> bool:
 
 class QuartzBackend(Backend):
     name = "Quartz CGEvent"
-    fix_action = ("Mở cài đặt", lambda: subprocess.Popen(["open", ACCESSIBILITY_URL]))
+    fix_action = ("open_settings", lambda: subprocess.Popen(["open", ACCESSIBILITY_URL]))
     _EVENTS = {
         "left": (Quartz.kCGEventLeftMouseDown, Quartz.kCGEventLeftMouseUp, Quartz.kCGMouseButtonLeft),
         "right": (Quartz.kCGEventRightMouseDown, Quartz.kCGEventRightMouseUp, Quartz.kCGMouseButtonRight),
@@ -29,10 +30,7 @@ class QuartzBackend(Backend):
     }
 
     def status(self):
-        if accessibility_trusted():
-            return None
-        return ("Chưa có quyền Accessibility nên app chưa click được. System Settings → Privacy & Security "
-                "→ Accessibility → bật Auto Clicker (hoặc Terminal nếu chạy từ Terminal).")
+        return None if accessibility_trusted() else tr("mac_no_ax")
 
     def request_permission(self):
         accessibility_trusted(prompt=True)

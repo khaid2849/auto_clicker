@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "autoclicker"
 dynamic = ["version"]
-description = "Tự động click chuột theo chu kỳ, có giao diện — chạy trên macOS, Windows và Linux (X11/Wayland)"
+description = "Tự động click chuột theo chu kỳ, có giao diện — macOS, Windows, Linux (X11/Wayland) + extension Chrome/Edge"
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [{ name = "Đặng Khải" }]
@@ -42,6 +42,9 @@ version = { attr = "autoclicker.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+autoclicker = ["browser_extension/*", "browser_extension/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
