@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autoclicker"
+dynamic = ["version"]
+description = "Tự động click chuột theo chu kỳ, có giao diện — chạy trên macOS, Windows và Linux (X11/Wayland)"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Đặng Khải" }]
+keywords = ["auto clicker", "autoclick", "mouse", "automation", "pyside6"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Environment :: X11 Applications :: Qt",
+    "Topic :: Utilities",
+]
+# Mỗi hệ điều hành chỉ cài đúng thư viện nó cần
+dependencies = [
+    "PySide6-Essentials>=6.6",
+    "pyobjc-framework-Quartz>=10.0; sys_platform == 'darwin'",
+    "pyobjc-framework-ApplicationServices>=10.0; sys_platform == 'darwin'",
+    "python-xlib>=0.33; sys_platform == 'linux'",
+    "jeepney>=0.8; sys_platform == 'linux'",
+]
+
+[project.optional-dependencies]
+build = ["pyinstaller>=6.0", "pillow>=10"]
+dev = ["pytest>=7"]
+
+[project.urls]
+Homepage = "https://github.com/khaid2849/auto_clicker"
+
+[project.gui-scripts]
+autoclicker = "autoclicker.__main__:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "autoclicker.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
