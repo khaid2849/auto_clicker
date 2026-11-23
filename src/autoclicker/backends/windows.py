@@ -9,6 +9,7 @@ import ctypes
 import time
 from ctypes import wintypes
 
+from ..i18n import tr
 from .base import Backend, KeepAwake
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
@@ -54,8 +55,7 @@ class WindowsBackend(Backend):
     def _send(self, flags: int) -> None:
         inp = INPUT(type=INPUT_MOUSE, u=_INPUTUNION(mi=MOUSEINPUT(0, 0, 0, flags, 0, 0)))
         if user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT)) != 1:
-            raise OSError("SendInput bị chặn — cửa sổ đích có thể đang chạy bằng quyền Administrator "
-                          "(hãy chạy Auto Clicker bằng 'Run as administrator')")
+            raise OSError(tr("win_blocked"))
 
     def click(self, x, y, button="left", clicks=1):
         down, up = MOUSEEVENTF[button]
