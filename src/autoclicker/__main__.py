@@ -1,4 +1,4 @@
-"""Điểm vào: lệnh `autoclicker` hoặc `python -m autoclicker`."""
+"""Entry point: the `autoclicker` command or `python -m autoclicker`."""
 from __future__ import annotations
 
 import argparse
@@ -8,13 +8,13 @@ from . import __version__
 
 
 def main() -> None:
-    # Phải cấu hình biến môi trường của Qt TRƯỚC khi import bất kỳ module Qt nào
+    # Qt environment variables must be set BEFORE any Qt module is imported
     from . import backends
     backends.configure_qt_env()
 
-    parser = argparse.ArgumentParser(prog="autoclicker", description="Tự động click chuột theo chu kỳ.")
+    parser = argparse.ArgumentParser(prog="autoclicker", description="Click the mouse automatically on a schedule.")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
-    parser.add_argument("--export-icon", metavar="PNG", help="xuất icon ra file PNG rồi thoát (dùng khi đóng gói)")
+    parser.add_argument("--export-icon", metavar="PNG", help="write the app icon to a PNG file and exit (used when packaging)")
     parser.add_argument("--icon-size", type=int, default=1024, help=argparse.SUPPRESS)
     args, qt_args = parser.parse_known_args()
 

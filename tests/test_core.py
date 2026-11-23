@@ -30,7 +30,7 @@ def test_detect(monkeypatch, platform, env, expected):
     assert backends.detect() == expected
 
 
-@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="uinput chỉ có trên Linux")
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="uinput only exists on Linux")
 def test_uinput_struct_layout():
     from autoclicker.backends.wayland import UinputBackend
     assert struct.calcsize(UinputBackend.DEV_FMT) == 1116  # sizeof(struct uinput_user_dev)
@@ -44,7 +44,7 @@ def test_main_window_clicks_and_stops(qapp):
 
     w = MainWindow()
     w.interval_spin.setValue(1)
-    w.unit_combo.setCurrentIndex(0)  # giây
+    w.unit_combo.setCurrentIndex(0)  # seconds
     w.click_now_cb.setChecked(True)
     w.repeat_spin.setValue(2)
     w.start()

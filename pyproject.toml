@@ -5,10 +5,10 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "autoclicker"
 dynamic = ["version"]
-description = "Tự động click chuột theo chu kỳ, có giao diện — macOS, Windows, Linux (X11/Wayland) + extension Chrome/Edge"
+description = "A simple auto clicker with a GUI for macOS, Windows and Linux (X11/Wayland), plus a Chrome/Edge extension"
 readme = "README.md"
 requires-python = ">=3.9"
-authors = [{ name = "Đặng Khải" }]
+authors = [{ name = "Dang Khai" }]
 keywords = ["auto clicker", "autoclick", "mouse", "automation", "pyside6"]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -18,7 +18,7 @@ classifiers = [
     "Environment :: X11 Applications :: Qt",
     "Topic :: Utilities",
 ]
-# Mỗi hệ điều hành chỉ cài đúng thư viện nó cần
+# Each OS only installs what it needs
 dependencies = [
     "PySide6-Essentials>=6.6",
     "pyobjc-framework-Quartz>=10.0; sys_platform == 'darwin'",

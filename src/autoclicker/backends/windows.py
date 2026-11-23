@@ -1,7 +1,7 @@
-"""Windows: đặt con trỏ bằng SetCursorPos rồi click bằng SendInput (ctypes, không cần thư viện ngoài).
+"""Windows: move the cursor with SetCursorPos, then click with SendInput (ctypes, no extra dependency).
 
-Qt được chạy với QT_ENABLE_HIGHDPI_SCALING=0 và process ở chế độ Per-Monitor DPI aware (mặc định
-của Qt 6), nên tọa độ Qt == pixel vật lý == tọa độ mà SetCursorPos nhận, kể cả khi scale 125–200%.
+Qt runs with QT_ENABLE_HIGHDPI_SCALING=0 and the process is Per-Monitor DPI aware (the Qt 6 default),
+so Qt coordinates == physical pixels == what SetCursorPos expects, even at 125–200% scaling.
 """
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ class MOUSEINPUT(ctypes.Structure):
 
 
 class _INPUTUNION(ctypes.Union):
-    _fields_ = [("mi", MOUSEINPUT)]  # MOUSEINPUT là thành viên lớn nhất -> sizeof(INPUT) đúng
+    _fields_ = [("mi", MOUSEINPUT)]  # MOUSEINPUT is the largest member -> sizeof(INPUT) is correct
 
 
 class INPUT(ctypes.Structure):
@@ -68,7 +68,7 @@ class WindowsBackend(Backend):
 
 
 class WindowsKeepAwake(KeepAwake):
-    """SetThreadExecutionState: chặn ngủ và tắt màn hình (phải gọi trên cùng một thread — luồng UI)."""
+    """SetThreadExecutionState: prevents sleep and display-off (must be called from one thread — the UI thread)."""
 
     def __init__(self):
         self._active = False

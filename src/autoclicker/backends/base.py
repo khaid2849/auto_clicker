@@ -1,24 +1,25 @@
-"""Interface chung mà mọi backend phải tuân theo."""
+"""The interface every backend implements."""
 from __future__ import annotations
 
 from typing import Callable, Optional, Tuple
 
 
 class Backend:
-    """Gửi sự kiện chuột. Tọa độ là tọa độ màn hình toàn cục, cùng hệ với Qt (QCursor.pos)."""
+    """Sends mouse events. Coordinates are global screen coordinates, the same system as Qt (QCursor.pos)."""
 
     name = "?"
-    #: Đọc được vị trí chuột toàn cục không (Wayland: không)
+    #: Whether the global cursor position can be read (not on Wayland)
     can_read_cursor = True
-    #: (khóa i18n của nhãn nút, hàm) hiện cạnh cảnh báo để người dùng tự sửa, vd. mở cài đặt quyền
+    #: (string key of the button label, callable) shown next to the warning so the user can fix it,
+    #: e.g. open the permission settings
     fix_action: Optional[Tuple[str, Callable[[], None]]] = None
 
     def status(self) -> Optional[str]:
-        """None = sẵn sàng; chuỗi = lý do chưa click được (hiện trên banner cảnh báo)."""
+        """None = ready; a string = why clicking can't work yet (shown in the warning banner)."""
         return None
 
     def request_permission(self) -> None:
-        """Gọi khi bấm Bắt đầu, để hệ điều hành hỏi cấp quyền nếu cần."""
+        """Called on Start so the OS can ask for permission if needed."""
 
     def move(self, x: int, y: int) -> None:
         raise NotImplementedError
@@ -31,7 +32,7 @@ class Backend:
 
 
 class DryBackend(Backend):
-    """Không gửi click thật: để thử giao diện, hoặc khi backend thật không khởi tạo được."""
+    """Sends no real clicks: for trying the UI, or when the real backend failed to start."""
 
     name = "dry-run"
 
@@ -49,10 +50,10 @@ class DryBackend(Backend):
 
 
 class KeepAwake:
-    """Giữ máy không ngủ / không khóa màn hình khi đang chạy. Mặc định: không làm gì."""
+    """Keeps the computer awake / unlocked while running. Default: does nothing."""
 
     def begin(self, prevent_sleep: bool) -> bool:
-        """Trả về False nếu được yêu cầu chống ngủ mà không làm được."""
+        """Returns False if keeping awake was requested but isn't possible."""
         return not prevent_sleep
 
     def end(self) -> None:

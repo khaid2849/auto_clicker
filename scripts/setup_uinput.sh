@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Linux Wayland: cho phép người dùng đang ngồi trước máy ghi /dev/uinput để tạo chuột ảo.
-# Cùng kiểu rule mà Steam dùng cho tay cầm (TAG uaccess), không cần thêm user vào group "input".
+# Linux Wayland: let the user sitting at the computer write to /dev/uinput to create a virtual mouse.
+# Same kind of rule Steam uses for game controllers (TAG uaccess); no need to join the "input" group.
 set -euo pipefail
 
 RULE=/etc/udev/rules.d/60-autoclicker-uinput.rules
@@ -12,7 +12,7 @@ sudo udevadm control --reload-rules
 sudo udevadm trigger --action=add --sysname-match=uinput || true
 
 if [ -w /dev/uinput ]; then
-  echo "OK: đã ghi được /dev/uinput"
+  echo "OK: /dev/uinput is writable"
 else
-  echo "Đã cấu hình. Hãy ĐĂNG XUẤT rồi đăng nhập lại để quyền có hiệu lực."
+  echo "Done. LOG OUT and log back in for the permission to take effect."
 fi

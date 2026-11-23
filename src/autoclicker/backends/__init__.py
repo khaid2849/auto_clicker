@@ -1,13 +1,13 @@
-"""Chọn backend gửi click theo hệ điều hành / loại phiên đăng nhập.
+"""Pick the click backend for the current OS / session type.
 
     macos    Quartz CGEvent              (backends/macos.py)
     windows  Win32 SetCursorPos+SendInput (backends/windows.py)
     x11      XTest                       (backends/x11.py)
-    wayland  chuột ảo /dev/uinput        (backends/wayland.py)
-    dry      không click thật, để thử giao diện
+    wayland  /dev/uinput virtual mouse   (backends/wayland.py)
+    dry      no real clicks, for trying the UI
 
-Ép backend bằng biến môi trường AUTOCLICKER_BACKEND=<tên ở trên>.
-Module này không import Qt: configure_qt_env() phải chạy trước khi import Qt.
+Force a backend with the environment variable AUTOCLICKER_BACKEND=<name above>.
+This module does not import Qt: configure_qt_env() must run before Qt is imported.
 """
 from __future__ import annotations
 
@@ -38,19 +38,19 @@ def platform_label() -> str:
     return {"macos": "macOS", "windows": "Windows", "x11": "Linux · X11",
             "wayland": "Linux · Wayland", "dry": tr("platform_dry")}.get(KIND, KIND)
 
-# Wayland không cho ứng dụng tự đặt vị trí cửa sổ
+# Wayland doesn't let applications position their own windows
 CAN_POSITION_WINDOWS = KIND != "wayland"
-# Trên Linux overlay chọn vị trí dùng fullscreen để phủ cả thanh trên cùng của GNOME
+# On Linux the position picker goes fullscreen so it also covers the GNOME top bar
 OVERLAY_FULLSCREEN = KIND in ("x11", "wayland")
 
 
 def configure_qt_env() -> None:
-    """Đồng bộ hệ tọa độ của Qt với hệ tọa độ mà backend dùng để click."""
+    """Make Qt use the same coordinate system as the backend that sends the clicks."""
     if KIND == "wayland":
         os.environ.setdefault("QT_QPA_PLATFORM", "wayland")
     elif KIND in ("x11", "windows"):
-        # XTest / SendInput dùng pixel vật lý -> tắt scale của Qt để tọa độ Qt == pixel vật lý.
-        # (macOS dùng "point" ở cả hai phía; Wayland dùng tọa độ logic ở cả hai phía.)
+        # XTest / SendInput use physical pixels -> turn off Qt scaling so Qt coordinates == physical pixels.
+        # (macOS uses points on both sides; Wayland uses logical coordinates on both sides.)
         os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "0")
 
 

@@ -1,4 +1,4 @@
-"""Cửa sổ chính: cài đặt, đếm ngược, nhật ký, icon khay hệ thống."""
+"""Main window: settings, countdown, log and system tray icon."""
 from __future__ import annotations
 
 import getpass
@@ -8,7 +8,7 @@ import sys
 import time
 from datetime import datetime
 
-from PySide6.QtCore import QEvent, QLocale, QObject, QPoint, QSettings, Qt, QTimer
+from PySide6.QtCore import QEvent, QObject, QPoint, QSettings, Qt, QTimer
 from PySide6.QtGui import QCursor, QGuiApplication, QIcon, QKeySequence, QShortcut
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import (
@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QSpinBox, QSystemTrayIcon, QVBoxLayout, QWidget,
 )
 
-from . import __version__, backends, i18n, theme
+from . import __version__, backends, theme
 from .backends import DryBackend
 from .common import APP_ID, APP_NAME, ORG_NAME, fmt_duration, make_icon, mono_font
 from .i18n import tr
@@ -32,12 +32,8 @@ CLICK_TYPES = [("single", 1), ("double", 2)]
 
 
 def make_settings() -> QSettings:
-    path = os.environ.get("AUTOCLICKER_SETTINGS")  # dùng cho test
+    path = os.environ.get("AUTOCLICKER_SETTINGS")  # used by the tests
     return QSettings(path, QSettings.IniFormat) if path else QSettings(ORG_NAME, "AutoClicker")
-
-
-def system_language() -> str:
-    return "vi" if QLocale.system().language() == QLocale.Vietnamese else "en"
 
 
 class MainWindow(QMainWindow):
@@ -47,7 +43,6 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon(make_icon()))
 
         self.settings = make_settings()
-        i18n.set_language(self.settings.value("language", system_language()))
         self.theme_mode = self.settings.value("theme", "system")
         self._applying_theme = False
 
@@ -85,10 +80,10 @@ class MainWindow(QMainWindow):
         self.status_timer.start(2000)
         self._check_backend()
 
-        QShortcut(QKeySequence("Ctrl+Return"), self, activated=self.toggle)  # ⌘↩ trên Mac
+        QShortcut(QKeySequence("Ctrl+Return"), self, activated=self.toggle)  # ⌘↩ on macOS
         QApplication.instance().aboutToQuit.connect(self._cleanup)
 
-    # ───────────── Giao diện ─────────────
+    # ───────────── UI ─────────────
     def _build_ui(self):
         central = QWidget()
         root = QVBoxLayout(central)
@@ -119,21 +114,14 @@ class MainWindow(QMainWindow):
         self.log_view.setFixedHeight(self.log_view.fontMetrics().lineSpacing() * 6 + 12)
         root.addWidget(self.log_view)
 
-        self.setCentralWidget(central)  # widget cũ (nếu có) bị Qt tự xóa
-        # Rộng theo cỡ chữ, để vẫn vừa khi màn hình scale 125–200%
+        self.setCentralWidget(central)
+        # Width follows the font size so the window still fits at 125–200% display scaling
         self.setMinimumWidth(self.fontMetrics().averageCharWidth() * 60)
         self.resize(self.minimumWidth(), self.sizeHint().height())
         self._set_running_ui(self.running)
 
     def _build_top_bar(self) -> QHBoxLayout:
         row = QHBoxLayout()
-        self.lang_combo = QComboBox()
-        self.lang_combo.setToolTip(tr("language"))
-        for code, name in i18n.LANGUAGES.items():
-            self.lang_combo.addItem(name, code)
-        self.lang_combo.setCurrentIndex(self.lang_combo.findData(i18n.current_language()))
-        self.lang_combo.currentIndexChanged.connect(self._on_lang_combo)
-
         self.theme_combo = QComboBox()
         self.theme_combo.setToolTip(tr("theme"))
         for mode in theme.THEMES:
@@ -144,9 +132,6 @@ class MainWindow(QMainWindow):
         ext_btn = QPushButton(tr("browser_ext"))
         ext_btn.clicked.connect(self.open_extension_dialog)
 
-        row.addWidget(QLabel("🌐"))
-        row.addWidget(self.lang_combo)
-        row.addSpacing(6)
         row.addWidget(self.theme_combo)
         row.addStretch()
         row.addWidget(ext_btn)
@@ -270,18 +255,16 @@ class MainWindow(QMainWindow):
         self._tray_menu.addSeparator()
         self.tray_quit = self._tray_menu.addAction("", QApplication.quit)
         self.tray.setContextMenu(self._tray_menu)
-        if not IS_MAC:  # macOS: click icon đã mở menu
+        if not IS_MAC:  # on macOS clicking the icon already opens the menu
             self.tray.activated.connect(self._on_tray_activated)
         self.tray.show()
         self._set_running_ui(self.running)
 
-    # ───────────── Slot ─────────────
-    # Luôn nối tín hiệu vào method của cửa sổ, KHÔNG dùng lambda/partial: với lambda, PySide tạo thêm
-    # một QObject trung gian giữ tham chiếu vòng tới self, và lúc Python thoát các đối tượng này bị hủy
-    # sai thứ tự -> "shared QObject was deleted directly" rồi crash (SIGABRT/SIGBUS).
-    def _on_lang_combo(self, _index: int):
-        self.set_language(self.lang_combo.currentData())
-
+    # ───────────── Slots ─────────────
+    # Always connect signals to methods of the window, NEVER to a lambda/partial: for those PySide
+    # creates an extra receiver QObject holding a reference cycle back to self, and at interpreter
+    # exit they are destroyed in the wrong order -> "shared QObject was deleted directly", then a
+    # crash (SIGABRT/SIGBUS).
     def _on_theme_combo(self, _index: int):
         self.set_theme(self.theme_combo.currentData())
 
@@ -296,39 +279,13 @@ class MainWindow(QMainWindow):
         self.backend.fix_action[1]()
 
     def _on_instance_ping(self):
-        """Một bản app khác vừa mở: hiện cửa sổ của bản đang chạy."""
+        """Another instance was launched: bring this one's window to the front."""
         server = self.sender()
         while server.hasPendingConnections():
             server.nextPendingConnection().deleteLater()
         self.show_window()
 
-    # ───────────── Ngôn ngữ / giao diện ─────────────
-    def set_language(self, code: str):
-        if code == i18n.current_language():
-            return
-        i18n.set_language(code)
-        self.settings.setValue("language", code)
-        QTimer.singleShot(0, self._retranslate)  # không xóa combobox ngay trong tín hiệu của chính nó
-
-    def _retranslate(self):
-        """Dựng lại giao diện bằng ngôn ngữ mới; giữ nguyên cài đặt, nhật ký và trạng thái đang chạy."""
-        log = self.log_view.toPlainText()
-        self._save_settings()
-        self._build_ui()
-        self._load_settings()
-        self._apply_backend_limits()
-        self._set_running_ui(self.running)
-        self._check_backend()
-        self._update_cursor_label()
-        self._update_target_label()
-        self.log_view.setPlainText(log)
-        self.log_view.verticalScrollBar().setValue(self.log_view.verticalScrollBar().maximum())
-        if self.running:
-            self._tick()
-        if self._ext_dialog:
-            self._ext_dialog.close()
-            self._ext_dialog = None
-
+    # ───────────── Theme ─────────────
     def set_theme(self, mode: str):
         self.theme_mode = mode
         self.settings.setValue("theme", mode)
@@ -355,14 +312,14 @@ class MainWindow(QMainWindow):
         self._ext_dialog.raise_()
         self._ext_dialog.activateWindow()
 
-    # ───────────── Lưu cài đặt ─────────────
+    # ───────────── Settings ─────────────
     def _load_settings(self):
         s = self.settings
         center = QGuiApplication.primaryScreen().geometry().center()
         self.x_spin.setValue(s.value("x", center.x(), type=int))
         self.y_spin.setValue(s.value("y", center.y(), type=int))
         self.interval_spin.setValue(s.value("interval", 3, type=int))
-        self.unit_combo.setCurrentIndex(s.value("unit", 1, type=int))  # mặc định: 3 phút
+        self.unit_combo.setCurrentIndex(s.value("unit", 1, type=int))  # default: every 3 minutes
         self.jitter_spin.setValue(s.value("jitter", 0, type=int))
         self.repeat_spin.setValue(s.value("repeat", 0, type=int))
         self.click_now_cb.setChecked(s.value("click_now", False, type=bool))
@@ -381,18 +338,18 @@ class MainWindow(QMainWindow):
             "click_now": self.click_now_cb.isChecked(),
             "button": self.button_combo.currentIndex(), "click_type": self.type_combo.currentIndex(),
             "pos_jitter": self.pos_jitter_spin.value(), "keep_awake": self.awake_cb.isChecked(),
-            "language": i18n.current_language(), "theme": self.theme_mode,
+            "theme": self.theme_mode,
         }
-        if self.backend.can_read_cursor:  # Wayland khóa 2 tùy chọn này -> giữ nguyên giá trị cũ
+        if self.backend.can_read_cursor:  # disabled on Wayland -> keep the saved values
             values.update(restore=self.restore_cb.isChecked(), failsafe=self.failsafe_cb.isChecked())
         for key, val in values.items():
             self.settings.setValue(key, val)
         self.settings.sync()
 
-    # ───────────── Chọn vị trí ─────────────
+    # ───────────── Position ─────────────
     def start_pick(self):
         self.hide()
-        QTimer.singleShot(300, self.picker.start)  # đợi cửa sổ ẩn hẳn
+        QTimer.singleShot(300, self.picker.start)  # wait until the window is really hidden
 
     def _on_picked(self, x, y):
         self.x_spin.setValue(x)
@@ -421,7 +378,7 @@ class MainWindow(QMainWindow):
         else:
             self.target_lbl.setText(tr("target_off"))
 
-    # ───────────── Chạy / dừng ─────────────
+    # ───────────── Start / stop ─────────────
     def toggle(self):
         self.stop() if self.running else self.start()
 
@@ -520,7 +477,7 @@ class MainWindow(QMainWindow):
             self.tray_quit.setText(tr("tray_quit"))
             self.tray.setToolTip(APP_NAME)
 
-    # ───────────── Khác ─────────────
+    # ───────────── Misc ─────────────
     def _check_backend(self):
         err = self.backend.status()
         self.warn_lbl.setText(f"⚠️  {err}" if err else "")
@@ -535,7 +492,7 @@ class MainWindow(QMainWindow):
         self.activateWindow()
 
     def closeEvent(self, e):
-        # Đang chạy (có icon khay): đóng cửa sổ nhưng vẫn click ở nền. Đang dừng: thoát app.
+        # While running (with a tray icon) closing the window keeps clicking in the background; otherwise quit.
         e.accept()
         if self.running and self.tray:
             self.tray.showMessage(APP_NAME, tr("tray_bg"), QSystemTrayIcon.Information, 2500)
@@ -549,7 +506,7 @@ class MainWindow(QMainWindow):
 
 
 class _ReopenOnActivate(QObject):
-    """macOS: bấm icon trên Dock khi cửa sổ đang ẩn -> hiện lại."""
+    """macOS: clicking the Dock icon while the window is hidden shows it again."""
 
     def __init__(self, window: MainWindow):
         super().__init__()
@@ -566,7 +523,7 @@ SOCKET_NAME = f"{APP_ID}-{getpass.getuser()}"
 
 
 def _notify_running_instance() -> bool:
-    """Nếu app đang chạy (có thể đang ẩn) thì bảo nó hiện cửa sổ; bản mới tự thoát."""
+    """If the app is already running (maybe hidden), tell it to show its window; this instance then exits."""
     sock = QLocalSocket()
     sock.connectToServer(SOCKET_NAME)
     if sock.waitForConnected(300):
@@ -579,17 +536,17 @@ def _notify_running_instance() -> bool:
 def run(argv: list[str]) -> int:
     if sys.platform.startswith("linux"):
         QApplication.setApplicationName(APP_ID)  # WM_CLASS (X11)
-        QGuiApplication.setDesktopFileName(APP_ID)  # app_id (Wayland) -> GNOME hiện đúng icon
+        QGuiApplication.setDesktopFileName(APP_ID)  # app_id (Wayland) so GNOME shows the right icon
     else:
         QApplication.setApplicationName(APP_NAME)
-    if sys.platform == "win32":  # taskbar hiện icon của app thay vì icon Python
+    if sys.platform == "win32":  # taskbar shows the app icon instead of the Python icon
         import ctypes
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(f"{ORG_NAME}.AutoClicker")
 
     app = QApplication(argv)
     if _notify_running_instance():
         return 0
-    app.setStyle("Fusion")  # cùng một kiểu hiển thị trên mọi hệ điều hành, đổi theme sáng/tối ổn định
+    app.setStyle("Fusion")  # same look on every OS and reliable light/dark switching
     app.setQuitOnLastWindowClosed(False)
     app.setWindowIcon(QIcon(make_icon(256)))
 

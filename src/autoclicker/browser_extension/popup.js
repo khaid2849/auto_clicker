@@ -1,4 +1,4 @@
-import { LANGUAGES, defaultLanguage, translator } from "./i18n.js";
+import { t } from "./i18n.js";
 import { startPicker } from "./inject.js";
 
 const $ = (id) => document.getElementById(id);
@@ -6,14 +6,13 @@ const DEFAULT_CONFIG = { mode: "element", interval: 3, unit: 60, jitter: 0, repe
 const THEMES = ["system", "light", "dark"];
 const STORE_HOSTS = ["chromewebstore.google.com", "microsoftedge.microsoft.com"];
 
-let t = translator("en");
-let prefs = { lang: "en", theme: "system" };
+let prefs = { theme: "system" };
 let tab = null;
 let origin = null;
-let target = null; // mục tiêu đã chọn cho trang (theo origin)
-let job = null; // lịch click đang chạy trên tab này (từ service worker)
-let result = null; // kết quả lần chạy gần nhất
-let flash = null; // thông báo tạm thời { text, until }
+let target = null; // picked target for this site (stored per origin)
+let job = null; // click schedule running on this tab (from the service worker)
+let result = null; // outcome of the last run
+let flash = null; // temporary message { text, until }
 
 function isScriptable(url) {
   try {
@@ -64,17 +63,13 @@ function writeForm(cfg) {
   $("clicks").value = String(cfg.clicks);
 }
 
-// ───────────── Hiển thị ─────────────
+// ───────────── Rendering ─────────────
 function applyPrefs() {
-  t = translator(prefs.lang);
-  document.documentElement.lang = prefs.lang;
   if (prefs.theme === "system") delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = prefs.theme;
   document.querySelectorAll("[data-i18n]").forEach((el) => (el.textContent = t(el.dataset.i18n)));
-  $("lang").title = t("language");
   $("theme").title = t("theme");
   $("theme").replaceChildren(...THEMES.map((mode) => new Option(t(`theme_${mode}`), mode, false, mode === prefs.theme)));
-  $("lang").value = prefs.lang;
   renderTarget();
   renderStatus();
 }
@@ -138,8 +133,8 @@ async function refreshJob() {
   renderStatus();
 }
 
-// ───────────── Hành động ─────────────
-// Các hàm gọi API cần "user gesture" (permissions.request) phải gọi ngay, không await trước đó.
+// ───────────── Actions ─────────────
+// APIs that need a user gesture (permissions.request) must be called right away, with no await before them.
 function onPick() {
   chrome.scripting
     .executeScript({ target: { tabId: tab.id }, func: startPicker, args: [{ hint: t("picker_hint"), done: t("picker_done") }] })
@@ -156,8 +151,8 @@ function onToggle() {
     return;
   }
   const config = readForm();
-  // Xin quyền cố định cho trang này để vẫn click được sau khi trang tải lại
-  // (không cấp thì vẫn chạy nhờ activeTab, tới khi trang chuyển hoặc tải lại)
+  // Ask for lasting access to this site so clicking survives page reloads
+  // (if denied it still works through activeTab until the page navigates or reloads)
   chrome.permissions.request({ origins: [sitePattern(tab.url)] }).catch(() => {});
   chrome.storage.local.set({ config });
   chrome.runtime.sendMessage({ type: "start", tabId: tab.id, target: { ...target, mode: config.mode }, config });
@@ -168,15 +163,14 @@ function savePrefs() {
   applyPrefs();
 }
 
-// ───────────── Khởi động ─────────────
+// ───────────── Startup ─────────────
 async function init() {
-  // ?tab=<id> chỉ dùng khi test/gỡ lỗi popup trong một tab riêng
+  // ?tab=<id> is only used to test/debug the popup in a regular tab
   const forced = Number(new URLSearchParams(location.search).get("tab"));
   tab = forced ? await chrome.tabs.get(forced) : (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
 
   const stored = await chrome.storage.local.get(["config", "prefs", "targets"]);
-  prefs = { lang: defaultLanguage(), theme: "system", ...stored.prefs };
-  $("lang").replaceChildren(...Object.entries(LANGUAGES).map(([code, name]) => new Option(name, code)));
+  prefs = { theme: "system", ...stored.prefs };
   writeForm({ ...DEFAULT_CONFIG, ...stored.config });
 
   const allowed = tab && isScriptable(tab.url);
@@ -189,7 +183,6 @@ async function init() {
   applyPrefs();
   if (tab) await refreshJob();
 
-  $("lang").addEventListener("change", () => { prefs.lang = $("lang").value; savePrefs(); });
   $("theme").addEventListener("change", () => { prefs.theme = $("theme").value; savePrefs(); });
   document.querySelectorAll(".settings input, .settings select").forEach((el) =>
     el.addEventListener("change", () => {
