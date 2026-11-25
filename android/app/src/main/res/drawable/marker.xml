@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Target marker: blue ring with a white outline and a center dot. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp"
+    android:height="36dp"
+    android:viewportWidth="36"
+    android:viewportHeight="36">
+    <path
+        android:pathData="M4,18 a14,14 0 1,0 28,0 a14,14 0 1,0 -28,0"
+        android:strokeWidth="6"
+        android:strokeColor="#FFFFFFFF" />
+    <path
+        android:pathData="M4,18 a14,14 0 1,0 28,0 a14,14 0 1,0 -28,0"
+        android:strokeWidth="3"
+        android:strokeColor="@color/brand" />
+    <path
+        android:fillColor="@color/brand"
+        android:pathData="M15,18 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
+</vector>

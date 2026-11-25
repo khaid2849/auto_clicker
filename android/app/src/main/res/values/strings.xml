@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Auto Clicker</string>
+    <string name="a11y_description">Lets Auto Clicker tap the spot you picked, on the schedule you set, and show its floating controls over other apps. It does not read or collect anything on your screen.</string>
+
+    <string name="section_permission">Permission</string>
+    <string name="permission_on">✓ Auto Clicker is turned on in Accessibility settings.</string>
+    <string name="permission_off">Android only lets an app tap for you after you turn it on in Accessibility settings.</string>
+    <string name="permission_turn_on">Turn on</string>
+    <string name="permission_manage">Accessibility settings</string>
+    <string name="permission_dialog_title">Turn on Auto Clicker</string>
+    <string name="permission_dialog_message">Auto Clicker uses the Accessibility service only to tap the spot you pick and to show its floating controls. It does not read your screen or collect any data.\n\nOn the next screen, open Installed apps (or Downloaded apps) → Auto Clicker and turn it on.</string>
+    <string name="permission_dialog_open">Open settings</string>
+
+    <string name="section_time">Timing</string>
+    <string name="click_every">Tap every</string>
+    <string name="jitter">Random extra time ± (seconds)</string>
+    <string name="repeat">Stop after (taps, 0 = never)</string>
+    <string name="click_now">Tap right away when starting</string>
+
+    <string name="section_click">Tap</string>
+    <string name="tap_type">Type</string>
+    <string name="pos_jitter">Random offset ± (pixels)</string>
+    <string name="keep_screen_on">Keep the screen on while running</string>
+
+    <string name="section_target">Position</string>
+    <string name="target_at">Target: X %1$d, Y %2$d</string>
+    <string name="target_none">No target yet.</string>
+    <string name="how_to">1. Press the button below. A small floating panel appears.\n2. Open the app you want to tap on.\n3. Press 🎯 on the panel, then touch the spot and lift your finger.\n4. Press ▶ to start and ■ to stop. ⚙ comes back here, ✕ hides the panel.</string>
+    <string name="show_panel">Show floating controls</string>
+
+    <string name="panel_start">▶</string>
+    <string name="panel_stop">■</string>
+    <string name="panel_pick">🎯</string>
+    <string name="panel_settings">⚙</string>
+    <string name="panel_close">✕</string>
+    <string name="panel_drag">⠿</string>
+    <string name="cd_pick">Pick position</string>
+    <string name="cd_toggle">Start or stop</string>
+    <string name="cd_settings">Settings</string>
+    <string name="cd_close">Hide panel</string>
+    <string name="status_ready">Ready</string>
+    <string name="status_no_target">Pick a spot first (🎯)</string>
+    <string name="status_running">%1$s\n%2$d taps</string>
+    <string name="done_n">Done: %1$d taps</string>
+    <string name="picker_hint">Touch the spot to tap, then lift your finger</string>
+
+    <string-array name="units">
+        <item>seconds</item>
+        <item>minutes</item>
+        <item>hours</item>
+    </string-array>
+    <string-array name="tap_types">
+        <item>Tap</item>
+        <item>Double tap</item>
+        <item>Long press</item>
+    </string-array>
+</resources>
