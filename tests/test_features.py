@@ -50,3 +50,15 @@ def test_theme_combo_and_palette(qapp):
     assert theme.apply_theme("light") is False
     assert qapp.palette().window().color().name() == "#f3f4f6"
     assert "@" not in theme.stylesheet(True)  # every color variable was substituted
+
+
+def test_window_fits_a_short_screen(qapp):
+    """1366×768 laptops: the window must fit the work area, the settings scroll instead."""
+    from autoclicker.app import MainWindow
+    w = MainWindow()
+    assert w.minimumSizeHint().height() <= 600  # room for a taskbar + title bar on a 768 px screen
+    w.show()
+    w._fit_to_screen()
+    assert w.frameGeometry().height() <= w.screen().availableGeometry().height()
+    assert w.start_btn.isVisibleTo(w)
+    w.hide()

@@ -8,13 +8,13 @@ import sys
 import time
 from datetime import datetime
 
-from PySide6.QtCore import QEvent, QObject, QPoint, QSettings, Qt, QTimer
+from PySide6.QtCore import QEvent, QObject, QPoint, QSettings, QSize, Qt, QTimer
 from PySide6.QtGui import QCursor, QGuiApplication, QIcon, QKeySequence, QShortcut
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QFormLayout, QFrame, QGridLayout, QGroupBox,
     QHBoxLayout, QLabel, QMainWindow, QMenu, QMessageBox, QPlainTextEdit, QPushButton,
-    QSpinBox, QSystemTrayIcon, QVBoxLayout, QWidget,
+    QScrollArea, QSpinBox, QSystemTrayIcon, QVBoxLayout, QWidget,
 )
 
 from . import __version__, backends, theme
@@ -29,6 +29,32 @@ SHORTCUT_LABEL = "⌘↩" if IS_MAC else "Ctrl+Enter"
 UNITS = [("unit_s", 1), ("unit_m", 60), ("unit_h", 3600)]
 BUTTONS = [("btn_left", "left"), ("btn_right", "right"), ("btn_middle", "middle")]
 CLICK_TYPES = [("single", 1), ("double", 2)]
+
+
+class SettingsScroll(QScrollArea):
+    """Scrolls the settings boxes when the screen is too short (e.g. 1366×768), so the window can
+    shrink while the Start button below it stays visible. On a tall screen it shows everything."""
+
+    def __init__(self, content: QWidget):
+        super().__init__(objectName="settingsScroll", widgetResizable=True, frameShape=QFrame.NoFrame)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setWidget(content)
+        self.verticalScrollBar().rangeChanged.connect(self._on_range_changed)
+
+    def _on_range_changed(self, _min: int, max_: int):
+        """A small gap between the boxes and the scrollbar, only while the scrollbar is shown."""
+        self.widget().layout().setContentsMargins(0, 0, 6 if max_ > 0 else 0, 0)
+
+    def _bar_width(self) -> int:
+        return self.verticalScrollBar().sizeHint().width()
+
+    def sizeHint(self) -> QSize:  # QScrollArea caps its hint at 24 lines; we want the whole content
+        hint = self.widget().sizeHint()
+        return QSize(hint.width() + self._bar_width(), hint.height() + 2 * self.frameWidth())
+
+    def minimumSizeHint(self) -> QSize:  # full width (room for the scrollbar), but any height
+        return QSize(self.widget().minimumSizeHint().width() + self._bar_width(),
+                     self.fontMetrics().lineSpacing() * 6)
 
 
 def make_settings() -> QSettings:
@@ -59,6 +85,7 @@ class MainWindow(QMainWindow):
         self.picker.picked.connect(self._on_picked)
         self.picker.finished.connect(self.show_window)
 
+        self._fitted = False
         self._apply_theme()
         QGuiApplication.styleHints().colorSchemeChanged.connect(self._on_system_scheme_changed)
 
@@ -102,9 +129,16 @@ class MainWindow(QMainWindow):
             hb.addWidget(fix_btn)
         root.addWidget(self.warn_banner)
 
-        root.addWidget(self._build_position_box())
-        root.addWidget(self._build_time_box())
-        root.addWidget(self._build_click_box())
+        content = QWidget(objectName="settingsPane")
+        boxes = QVBoxLayout(content)
+        boxes.setContentsMargins(0, 0, 0, 0)
+        boxes.setSpacing(10)
+        boxes.addWidget(self._build_position_box())
+        boxes.addWidget(self._build_time_box())
+        boxes.addWidget(self._build_click_box())
+        boxes.addStretch()
+        self.settings_scroll = SettingsScroll(content)
+        root.addWidget(self.settings_scroll, 1)
         root.addWidget(self._build_status_card())
 
         self.log_view = QPlainTextEdit(readOnly=True)
@@ -118,6 +152,7 @@ class MainWindow(QMainWindow):
         # Width follows the font size so the window still fits at 125–200% display scaling
         self.setMinimumWidth(self.fontMetrics().averageCharWidth() * 60)
         self.resize(self.minimumWidth(), self.sizeHint().height())
+        self._fit_to_screen()
         self._set_running_ui(self.running)
 
     def _build_top_bar(self) -> QHBoxLayout:
@@ -476,6 +511,27 @@ class MainWindow(QMainWindow):
             self.tray_show.setText(tr("tray_show"))
             self.tray_quit.setText(tr("tray_quit"))
             self.tray.setToolTip(APP_NAME)
+
+    # ───────────── Window size ─────────────
+    def _fit_to_screen(self):
+        """Keep the whole window, title bar included, inside the screen's work area (taskbar/panels
+        excluded). On a short screen such as 1366×768 the settings scroll instead of the Start button
+        ending up below the bottom edge."""
+        avail = (self.screen() or QGuiApplication.primaryScreen()).availableGeometry()
+        frame_h = self.frameGeometry().height() - self.height()  # 0 until the window is shown
+        if frame_h <= 0:
+            frame_h = self.fontMetrics().height() * 3  # estimate of the title bar + borders
+        h = max(self.minimumSizeHint().height(), min(self.sizeHint().height(), avail.height() - frame_h))
+        self.resize(self.width(), h)
+        frame = self.frameGeometry()
+        if frame.bottom() > avail.bottom() or frame.top() < avail.top():  # no-op on Wayland
+            self.move(frame.x(), max(avail.top(), avail.bottom() - frame.height() + 1))
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        if not self._fitted:  # first show: now the real title bar height is known
+            self._fitted = True
+            QTimer.singleShot(0, self._fit_to_screen)
 
     # ───────────── Misc ─────────────
     def _check_backend(self):
