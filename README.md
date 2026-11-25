@@ -29,6 +29,7 @@ Get the latest version from the **[Releases page](https://github.com/khaid2849/a
 | Windows 10 / 11 | `AutoClicker-windows-x64.zip` | Unzip and run `AutoClicker.exe`. If Windows SmartScreen appears, click **More info → Run anyway**. |
 | macOS (Apple Silicon) | `AutoClicker-macos-arm64.zip` | Unzip and drag `AutoClicker.app` to **Applications**. The first time, right-click the app and choose **Open**. |
 | Linux | `AutoClicker-linux-x64.tar.gz` | Extract it and run `AutoClicker/AutoClicker`. See [Linux notes](#linux). |
+| Android 7.0+ | `AutoClicker-android.apk` | Open the file on your phone and allow installing from this source. See [Android](#android-app). |
 
 ## How to use
 
@@ -38,6 +39,14 @@ Get the latest version from the **[Releases page](https://github.com/khaid2849/a
 4. Press **■ Stop** when you're done, or use the emergency stop.
 
 You can close the window while it's running — Auto Clicker keeps going in the background. Reopen it from its icon in the system tray (menu bar on Mac).
+
+## Android app
+
+1. Open Auto Clicker and press **Turn on**, then turn on **Auto Clicker** in **Settings → Accessibility** (under *Installed apps* or *Downloaded apps*). Android only lets an app tap for you this way. The app doesn't read your screen.
+2. Set the timing and press **Show floating controls**.
+3. Open the app you want to tap on. On the floating panel, press **🎯** and touch the spot, then press **▶**. Press **■** to stop.
+
+The app isn't on Google Play. Building it yourself: see [`android/README.md`](android/README.md). There's no iOS version, because iOS doesn't let apps tap on other apps.
 
 ## Browser extension (Chrome & Edge)
 

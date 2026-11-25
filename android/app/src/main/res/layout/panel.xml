@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Floating controls, drawn over other apps. Drag it by the handle or the status text. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/panel_bg"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="6dp"
+    android:paddingTop="4dp"
+    android:paddingEnd="6dp"
+    android:paddingBottom="4dp">
+
+    <TextView
+        android:layout_width="24dp"
+        android:layout_height="48dp"
+        android:gravity="center"
+        android:importantForAccessibility="no"
+        android:text="@string/panel_drag"
+        android:textColor="#99FFFFFF"
+        android:textSize="18sp" />
+
+    <TextView
+        android:id="@+id/pick"
+        style="@style/PanelButton"
+        android:contentDescription="@string/cd_pick"
+        android:text="@string/panel_pick" />
+
+    <TextView
+        android:id="@+id/toggle"
+        style="@style/PanelButton"
+        android:contentDescription="@string/cd_toggle"
+        android:text="@string/panel_start" />
+
+    <TextView
+        android:id="@+id/status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:gravity="center"
+        android:minWidth="72dp"
+        android:maxWidth="140dp"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp"
+        android:textColor="#FFFFFF"
+        android:textSize="13sp" />
+
+    <TextView
+        android:id="@+id/settings"
+        style="@style/PanelButton"
+        android:contentDescription="@string/cd_settings"
+        android:text="@string/panel_settings" />
+
+    <TextView
+        android:id="@+id/close"
+        style="@style/PanelButton"
+        android:contentDescription="@string/cd_close"
+        android:text="@string/panel_close" />
+</LinearLayout>
