@@ -13,8 +13,8 @@ android {
         applicationId = "io.github.khaid2849.autoclicker"
         minSdk = 24 // Android 7.0: the first version that lets an accessibility service send taps
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "1.2.0"
     }
 
     // Release signing comes from 4 environment variables (CI fills them from GitHub secrets).

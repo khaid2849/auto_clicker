@@ -3,7 +3,7 @@
   "name": "Auto Clicker",
   "short_name": "Auto Clicker",
   "description": "Automatically click a button or a position on a web page on a schedule, even in background tabs.",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "minimum_chrome_version": "116",
   "icons": {
     "16": "icons/icon16.png",
