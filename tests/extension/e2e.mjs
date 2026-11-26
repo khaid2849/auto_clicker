@@ -140,7 +140,42 @@ await sleep(400);
 s = await session();
 check("Stop button", !s.jobs?.[tabId] && s.results?.[tabId]?.reason === "stopped");
 
-// 7. Page reloads mid-run -> keeps clicking
+// 7. Scheduled start/stop: wait 1 s, click every second, stop 2 s after the start
+await pageVal(() => { window.count = 0; window.scrollTo(0, 0); });
+const t0 = Date.now();
+await popup.evaluate((tabId, when) => chrome.runtime.sendMessage({ type: "start", tabId,
+  target: { mode: "element", selector: "#btn" },
+  config: { interval: 1, unit: 1, jitter: 0, repeat: 0, clickNow: true, button: "left", clicks: 1 }, when }),
+  tabId, { startAt: t0 + 1000, stopAt: t0 + 3000 });
+await sleep(400);
+s = await session();
+check("scheduled start waits", s.jobs?.[tabId]?.waiting === true && (await pageVal(() => window.count)) === 0);
+await popup.reload(); await popup.waitForSelector("#toggle"); await sleep(300);
+const waitText = await popup.$eval("#stateText", (el) => el.textContent);
+check("popup shows waiting", /Waiting/.test(waitText), waitText);
+if (SHOTS) await popup.screenshot({ path: path.join(SHOTS, "popup_waiting.png"), fullPage: true });
+await sleep(1000);
+check("starts at the start time", (await pageVal(() => window.count)) >= 1, `count=${await pageVal(() => window.count)}`);
+await sleep(2000);
+s = await session();
+const timedCount = await pageVal(() => window.count);
+check("stops at the stop time", !s.jobs?.[tabId] && s.results?.[tabId]?.reason === "timeup" && timedCount >= 2 && timedCount <= 3,
+  `count=${timedCount} ${JSON.stringify(s.results?.[tabId])}`);
+
+// 8. Popup form: a bad duration is refused before starting
+await popup.evaluate(() => {
+  document.getElementById("startMode").value = "in";
+  document.getElementById("startMode").dispatchEvent(new Event("change"));
+});
+await setForm(popup, { startIn: "1:99:00" });
+await popup.click("#toggle");
+await sleep(300);
+s = await session();
+const badMsg = await popup.$eval("#message", (el) => el.textContent);
+check("bad duration is refused", !s.jobs?.[tabId] && /duration/.test(badMsg), badMsg);
+await setForm(popup, { startMode: "now", startIn: "00:20:00" });
+
+// 9. Page reloads mid-run -> keeps clicking
 await start({ mode: "element", selector: "#btn" }, { ...base, repeat: 0 });
 await sleep(300);
 await page.reload();
@@ -148,7 +183,7 @@ await sleep(2300);
 const afterReload = await pageVal(() => window.count || 0);
 check("keeps clicking after a page reload", afterReload >= 1, `count=${afterReload}`);
 
-// 8. Closing the tab clears the schedule
+// 10. Closing the tab clears the schedule
 const badge = await sw.evaluate((tabId) => chrome.action.getBadgeText({ tabId }), tabId);
 check("badge shows the click count", /^\d+$|ON/.test(badge), `badge=${badge}`);
 await page.close();
@@ -156,7 +191,7 @@ await sleep(500);
 s = await session();
 check("closing the tab clears the schedule", !s.jobs?.[tabId]);
 
-// 9. Popup screenshots: light / dark
+// 11. Popup screenshots: light / dark
 const shotPage = await browser.newPage();
 await shotPage.goto(URL_);
 const tab2 = (await sw.evaluate(() => chrome.tabs.query({ url: "http://127.0.0.1:8765/*" })))[0].id;

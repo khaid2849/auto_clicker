@@ -86,6 +86,99 @@
             android:minHeight="48dp"
             android:text="@string/click_now" />
 
+        <!-- Schedule: start at 19:30 / in 00:20:00, stop at 21:00 / after 01:30:00 -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="@string/section_schedule" />
+
+        <LinearLayout style="@style/Row">
+
+            <TextView
+                style="@style/RowLabel"
+                android:text="@string/sched_start" />
+
+            <Spinner
+                android:id="@+id/start_mode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/start_at_row"
+            style="@style/Row">
+
+            <TextView
+                style="@style/RowLabel"
+                android:labelFor="@id/start_at"
+                android:text="@string/sched_time" />
+
+            <Button
+                android:id="@+id/start_at"
+                style="@style/TimeButton" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/start_in_row"
+            style="@style/Row">
+
+            <TextView
+                style="@style/RowLabel"
+                android:labelFor="@id/start_in"
+                android:text="@string/sched_start_in" />
+
+            <EditText
+                android:id="@+id/start_in"
+                style="@style/DurationField" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/Row">
+
+            <TextView
+                style="@style/RowLabel"
+                android:text="@string/sched_stop" />
+
+            <Spinner
+                android:id="@+id/stop_mode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/stop_at_row"
+            style="@style/Row">
+
+            <TextView
+                style="@style/RowLabel"
+                android:labelFor="@id/stop_at"
+                android:text="@string/sched_time" />
+
+            <Button
+                android:id="@+id/stop_at"
+                style="@style/TimeButton" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/stop_after_row"
+            style="@style/Row">
+
+            <TextView
+                style="@style/RowLabel"
+                android:labelFor="@id/stop_after"
+                android:text="@string/sched_stop_after" />
+
+            <EditText
+                android:id="@+id/stop_after"
+                style="@style/DurationField" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/sched_note"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:alpha="0.7"
+            android:text="@string/sched_note"
+            android:textSize="13sp" />
+
         <!-- Tap -->
         <TextView
             style="@style/SectionTitle"

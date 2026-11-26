@@ -10,7 +10,7 @@ Needs Android 7.0 or newer.
 | `ClickerService.kt` | An **accessibility service**: the only way Android lets an app tap on other apps (`dispatchGesture`). It also draws the floating panel, the target marker and the picker over other apps (`TYPE_ACCESSIBILITY_OVERLAY`, so no "display over other apps" permission is needed) and runs the timer. |
 | `PickerView.kt` | Full-screen crosshair with live X/Y. Lifting the finger picks the spot. |
 | `MainActivity.kt` | Settings screen and the permission explanation. |
-| `ClickConfig.kt` | Settings, timing maths (`nextIntervalMs`, `tapPoint`, `fmtDuration`) and saving. Plain Kotlin with unit tests. |
+| `ClickConfig.kt` | Settings, timing maths (`nextIntervalMs`, `tapPoint`, `fmtDuration`), the start/stop schedule (`plan`, `nextClockMs`, `parseDuration`) and saving. Plain Kotlin with unit tests. |
 
 Differences from the desktop app: taps instead of mouse buttons (tap, double tap, long press). There's no cursor to put back.
 The emergency stop is the ■ button on the floating panel.

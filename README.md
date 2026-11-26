@@ -14,6 +14,7 @@ It also comes with a **Chrome / Edge extension** that clicks a button inside a w
 
 - **Point and click setup** — the screen dims and shows a crosshair with live X/Y coordinates; just click where you want the auto clicks to land. Works with multiple monitors.
 - **Flexible timing** — click every few seconds, minutes or hours, add a little randomness, and stop automatically after a number of clicks.
+- **Schedule** — start at a time of day (19:30) or after a countdown (00:20:00), and stop at a time of day (21:00) or after running for a while (01:30:00).
 - **Any click** — left, right or middle button, single or double click.
 - **Stays out of your way** — puts the cursor back where it was after each click, keeps the computer from sleeping, and keeps running from the system tray when you close the window.
 - **Emergency stop** — move the mouse to the top-left corner of the screen, or press `Ctrl+Enter` (`⌘↩` on Mac).
@@ -38,6 +39,13 @@ Get the latest version from the **[Releases page](https://github.com/khaid2849/a
 3. Press **▶ Start**. The big timer counts down to the next click.
 4. Press **■ Stop** when you're done, or use the emergency stop.
 
+**Start or stop at a set time.** In **Schedule**, choose when to start: **Right away**, **At (time of day)** such as 19:30, or **After a countdown** such as 00:20:00. Then choose when to stop: **No time limit**, **At (time of day)** such as 21:00, or **After running for** such as 01:30:00. Press **▶ Start**: the status shows *Waiting to start* and counts down to the start time. Press **■ Stop** to cancel at any time.
+
+- A time of day that has already passed today means tomorrow. The stop time counts from the start, so *start 22:00, stop 01:00* runs overnight.
+- *After running for* counts from when the clicks begin, not from when you pressed Start.
+- **Stop after** (number of clicks) still works too: whichever comes first ends the run.
+- Leave **Keep the computer awake** on, so the computer isn't asleep when the start time comes.
+
 You can close the window while it's running — Auto Clicker keeps going in the background. Reopen it from its icon in the system tray (menu bar on Mac).
 
 ## Android app
@@ -45,6 +53,8 @@ You can close the window while it's running — Auto Clicker keeps going in the 
 1. Open Auto Clicker and press **Turn on**, then turn on **Auto Clicker** in **Settings → Accessibility** (under *Installed apps* or *Downloaded apps*). Android only lets an app tap for you this way. The app doesn't read your screen.
 2. Set the timing and press **Show floating controls**.
 3. Open the app you want to tap on. On the floating panel, press **🎯** and touch the spot, then press **▶**. Press **■** to stop.
+
+The **Schedule** settings work as on the desktop: start at 19:30 or after 00:20:00, stop at 21:00 or after 01:30:00. While it waits, the panel shows *Starts in* and the time left. Keep **Keep the screen on** checked: Android can pause the app while the screen is off.
 
 The app isn't on Google Play. Building it yourself: see [`android/README.md`](android/README.md). There's no iOS version, because iOS doesn't let apps tap on other apps.
 
@@ -67,6 +77,8 @@ Keep the folder where it is — the browser loads the extension from it.
 1. Open the page you want to click on and click the Auto Clicker icon.
 2. Click **🎯 Pick on page**, then click the button you want to auto-click.
 3. Open the Auto Clicker icon again, set the timing and press **▶ Start**.
+
+**Schedule** works here as well: start at a time of day or after a countdown, and stop at a time of day or after running for a while. While it waits, the icon shows **WAIT**.
 
 The icon shows how many clicks have been made. Your pick is remembered for each website. The first time you start on a site, the browser asks for permission to access it — allow it so clicking continues after the page reloads.
 

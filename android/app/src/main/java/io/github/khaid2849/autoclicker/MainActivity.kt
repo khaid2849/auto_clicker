@@ -2,13 +2,16 @@ package io.github.khaid2849.autoclicker
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.TimePickerDialog
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.text.format.DateFormat
 import android.view.View
 import android.view.WindowInsets
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.CheckBox
@@ -33,6 +36,16 @@ class MainActivity : Activity() {
     private lateinit var keepScreenOn: CheckBox
     private lateinit var target: TextView
     private lateinit var showPanel: Button
+    private lateinit var startMode: Spinner
+    private lateinit var startAt: Button
+    private lateinit var startIn: EditText
+    private lateinit var stopMode: Spinner
+    private lateinit var stopAt: Button
+    private lateinit var stopAfter: EditText
+
+    // Times of day picked with the clock dialog, minutes since midnight
+    private var startAtMin = 0
+    private var stopAtMin = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,9 +79,29 @@ class MainActivity : Activity() {
         keepScreenOn = findViewById(R.id.keep_screen_on)
         target = findViewById(R.id.target)
         showPanel = findViewById(R.id.show_panel)
+        startMode = findViewById(R.id.start_mode)
+        startAt = findViewById(R.id.start_at)
+        startIn = findViewById(R.id.start_in)
+        stopMode = findViewById(R.id.stop_mode)
+        stopAt = findViewById(R.id.stop_at)
+        stopAfter = findViewById(R.id.stop_after)
 
         unit.adapter = adapter(R.array.units)
         tapType.adapter = adapter(R.array.tap_types)
+        startMode.adapter = adapter(R.array.start_modes)
+        stopMode.adapter = adapter(R.array.stop_modes)
+        val showFields = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) = updateScheduleRows()
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        startMode.onItemSelectedListener = showFields
+        stopMode.onItemSelectedListener = showFields
+        startAt.setOnClickListener {
+            pickTime(startAtMin) { startAtMin = it; startAt.text = fmtMinuteOfDay(it) }
+        }
+        stopAt.setOnClickListener {
+            pickTime(stopAtMin) { stopAtMin = it; stopAt.text = fmtMinuteOfDay(it) }
+        }
 
         permissionButton.setOnClickListener { explainPermission() }
         showPanel.setOnClickListener { onShowPanel() }
@@ -101,6 +134,31 @@ class MainActivity : Activity() {
         posJitter.setText(c.posJitterPx.toString())
         clickNow.isChecked = c.clickNow
         keepScreenOn.isChecked = c.keepScreenOn
+        startMode.setSelection(c.startMode.ordinal)
+        stopMode.setSelection(c.stopMode.ordinal)
+        startAtMin = c.startAtMin
+        stopAtMin = c.stopAtMin
+        startAt.text = fmtMinuteOfDay(c.startAtMin)
+        stopAt.text = fmtMinuteOfDay(c.stopAtMin)
+        startIn.setText(fmtHms(c.startInSec))
+        stopAfter.setText(fmtHms(c.stopAfterSec))
+        updateScheduleRows()
+    }
+
+    /** Show only the time field that goes with each chosen start / stop mode. */
+    private fun updateScheduleRows() {
+        val start = StartMode.entries[startMode.selectedItemPosition]
+        val stop = StopMode.entries[stopMode.selectedItemPosition]
+        findViewById<View>(R.id.start_at_row).visibility = if (start == StartMode.AT) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.start_in_row).visibility = if (start == StartMode.IN) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.stop_at_row).visibility = if (stop == StopMode.AT) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.stop_after_row).visibility = if (stop == StopMode.AFTER) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.sched_note).visibility = if (start == StartMode.NOW) View.GONE else View.VISIBLE
+    }
+
+    private fun pickTime(minuteOfDay: Int, onPicked: (Int) -> Unit) {
+        TimePickerDialog(this, { _, h, m -> onPicked(h * 60 + m) },
+            minuteOfDay / 60, minuteOfDay % 60, DateFormat.is24HourFormat(this)).show()
     }
 
     private fun read(): ClickConfig {
@@ -114,11 +172,38 @@ class MainActivity : Activity() {
             posJitterPx = posJitter.int(0).coerceIn(0, 200),
             clickNow = clickNow.isChecked,
             keepScreenOn = keepScreenOn.isChecked,
+            startMode = StartMode.entries[startMode.selectedItemPosition],
+            startAtMin = startAtMin,
+            startInSec = parseDuration(startIn.text.toString()) ?: saved.startInSec,
+            stopMode = StopMode.entries[stopMode.selectedItemPosition],
+            stopAtMin = stopAtMin,
+            stopAfterSec = parseDuration(stopAfter.text.toString())?.takeIf { it > 0 } ?: saved.stopAfterSec,
         )
+    }
+
+    /** Marks a countdown that can't be read; returns false if any is wrong. */
+    private fun durationsValid(): Boolean {
+        var ok = true
+        val fields = listOf(
+            Triple(startIn, StartMode.entries[startMode.selectedItemPosition] == StartMode.IN, 0),
+            Triple(stopAfter, StopMode.entries[stopMode.selectedItemPosition] == StopMode.AFTER, 1),
+        )
+        for ((field, used, min) in fields) {
+            val sec = parseDuration(field.text.toString())
+            if (used && (sec == null || sec < min)) {
+                field.error = getString(R.string.bad_duration)
+                if (ok) field.requestFocus()
+                ok = false
+            } else {
+                field.error = null
+            }
+        }
+        return ok
     }
 
     private fun onShowPanel() {
         val service = ClickerService.instance ?: return explainPermission()
+        if (!durationsValid()) return
         prefs.save(read())
         service.showPanel()
         moveTaskToBack(true) // go back to the app the user wants to tap on

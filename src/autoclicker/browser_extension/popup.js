@@ -1,8 +1,13 @@
 import { t } from "./i18n.js";
 import { startPicker } from "./inject.js";
+import { fmtWhen, plan } from "./schedule.js";
 
 const $ = (id) => document.getElementById(id);
-const DEFAULT_CONFIG = { mode: "element", interval: 3, unit: 60, jitter: 0, repeat: 0, clickNow: false, button: "left", clicks: 1 };
+const DEFAULT_CONFIG = {
+  mode: "element", interval: 3, unit: 60, jitter: 0, repeat: 0, clickNow: false, button: "left", clicks: 1,
+  startMode: "now", startAt: "19:30", startIn: "00:20:00", stopMode: "none", stopAt: "21:00", stopAfter: "01:30:00",
+};
+const SCHEDULE_FIELDS = ["startMode", "startAt", "startIn", "stopMode", "stopAt", "stopAfter"];
 const THEMES = ["system", "light", "dark"];
 const STORE_HOSTS = ["chromewebstore.google.com", "microsoftedge.microsoft.com"];
 
@@ -49,6 +54,7 @@ function readForm() {
     clickNow: $("clickNow").checked,
     button: $("button").value,
     clicks: Number($("clicks").value),
+    ...Object.fromEntries(SCHEDULE_FIELDS.map((id) => [id, $(id).value.trim()])),
   };
 }
 
@@ -61,6 +67,16 @@ function writeForm(cfg) {
   $("clickNow").checked = cfg.clickNow;
   $("button").value = cfg.button;
   $("clicks").value = String(cfg.clicks);
+  for (const id of SCHEDULE_FIELDS) $(id).value = cfg[id];
+  renderScheduleFields();
+}
+
+/** Show only the time field that goes with each chosen start / stop mode. */
+function renderScheduleFields() {
+  $("startAt").hidden = $("startMode").value !== "at";
+  $("startIn").hidden = $("startMode").value !== "in";
+  $("stopAt").hidden = $("stopMode").value !== "at";
+  $("stopAfter").hidden = $("stopMode").value !== "after";
 }
 
 // ───────────── Rendering ─────────────
@@ -68,6 +84,7 @@ function applyPrefs() {
   if (prefs.theme === "system") delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = prefs.theme;
   document.querySelectorAll("[data-i18n]").forEach((el) => (el.textContent = t(el.dataset.i18n)));
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => (el.title = t(el.dataset.i18nTitle)));
   $("theme").title = t("theme");
   $("theme").replaceChildren(...THEMES.map((mode) => new Option(t(`theme_${mode}`), mode, false, mode === prefs.theme)));
   renderTarget();
@@ -92,10 +109,19 @@ function renderTarget() {
 
 function renderStatus() {
   const running = Boolean(job);
-  $("dot").classList.toggle("on", running);
-  $("stateText").textContent = t(running ? "running" : "stopped");
+  const waiting = Boolean(job?.waiting);
+  $("dot").classList.toggle("on", running && !waiting);
+  $("dot").classList.toggle("wait", waiting);
+  $("stateText").textContent = t(waiting ? "waiting" : running ? "running" : "stopped");
   $("count").textContent = t("clicks", { n: job?.count ?? result?.count ?? 0 });
+  $("next").textContent = t(waiting ? "starts_in" : "next");
   $("countdown").textContent = running ? fmt(job.nextAt - Date.now()) : "--:--";
+  const planText = [
+    waiting ? t("plan_start", { t: fmtWhen(job.startAt) }) : "",
+    job?.stopAt ? t("plan_stop", { t: fmtWhen(job.stopAt) }) : "",
+  ].filter(Boolean).join("  ·  ");
+  $("plan").textContent = planText;
+  $("plan").hidden = !planText;
   $("toggle").textContent = t(running ? "stop" : "start");
   $("toggle").classList.toggle("running", running);
   document.querySelectorAll(".settings input, .settings select, .settings button")
@@ -110,7 +136,7 @@ function renderStatus() {
     text = t(`err_${job.lastError}`);
     isError = true;
   } else if (!job && result) {
-    text = t(result.reason === "done" ? "done" : "stopped_after", { n: result.count });
+    text = t({ done: "done", timeup: "timeup" }[result.reason] ?? "stopped_after", { n: result.count });
   }
   showMessage(text, isError);
 }
@@ -151,11 +177,17 @@ function onToggle() {
     return;
   }
   const config = readForm();
+  const when = plan(Date.now(), config);
+  if (when.error) {
+    showFlash(t(when.error.endsWith("At") ? "err_bad_time" : "err_bad_duration"));
+    $(when.error).focus();
+    return;
+  }
   // Ask for lasting access to this site so clicking survives page reloads
   // (if denied it still works through activeTab until the page navigates or reloads)
   chrome.permissions.request({ origins: [sitePattern(tab.url)] }).catch(() => {});
   chrome.storage.local.set({ config });
-  chrome.runtime.sendMessage({ type: "start", tabId: tab.id, target: { ...target, mode: config.mode }, config });
+  chrome.runtime.sendMessage({ type: "start", tabId: tab.id, target: { ...target, mode: config.mode }, config, when });
 }
 
 function savePrefs() {
@@ -188,6 +220,7 @@ async function init() {
     el.addEventListener("change", () => {
       chrome.storage.local.set({ config: readForm() });
       renderTarget();
+      renderScheduleFields();
     }));
   $("pick").addEventListener("click", onPick);
   $("toggle").addEventListener("click", onToggle);

@@ -42,10 +42,16 @@ function nextDelay(job) {
   return Math.max(1000, job.intervalMs + jitter);
 }
 
+// Next time fire() must run: the next click, or the stop time if that comes first
+function wakeAt(job) {
+  return job.stopAt ? Math.min(job.nextAt, job.stopAt) : job.nextAt;
+}
+
 function schedule(job) {
   clearTimeout(timers.get(job.tabId));
-  chrome.alarms.create(ALARM_PREFIX + job.tabId, { when: job.nextAt });
-  const delay = Math.max(0, job.nextAt - Date.now());
+  const when = wakeAt(job);
+  chrome.alarms.create(ALARM_PREFIX + job.tabId, { when });
+  const delay = Math.max(0, when - Date.now());
   if (delay <= SHORT_MS) timers.set(job.tabId, setTimeout(() => fire(job.tabId), delay));
 }
 
@@ -57,8 +63,10 @@ async function unschedule(tabId) {
 
 async function updateBadge(tabId, job) {
   try {
-    await chrome.action.setBadgeBackgroundColor({ tabId, color: job?.lastError ? "#d97706" : "#16a34a" });
-    await chrome.action.setBadgeText({ tabId, text: job ? (job.count ? String(job.count) : "ON") : "" });
+    const amber = job?.lastError || job?.waiting;
+    await chrome.action.setBadgeBackgroundColor({ tabId, color: amber ? "#d97706" : "#16a34a" });
+    const text = !job ? "" : job.waiting ? "WAIT" : job.count ? String(job.count) : "ON";
+    await chrome.action.setBadgeText({ tabId, text });
   } catch {
     // the tab was closed
   }
@@ -72,8 +80,11 @@ async function finish(tabId, reason, count = 0) {
   await updateBadge(tabId, null);
 }
 
-function start(tabId, target, cfg) {
+// `when` = { startAt, stopAt } in epoch ms, worked out by the popup (schedule.js); missing = start now, no time limit
+function start(tabId, target, cfg, when = {}) {
   return locked(async () => {
+    const now = Date.now();
+    const startAt = Number(when.startAt) || now;
     const job = {
       tabId,
       target,
@@ -84,9 +95,13 @@ function start(tabId, target, cfg) {
       clicks: Number(cfg.clicks) === 2 ? 2 : 1,
       count: 0,
       lastError: null,
+      clickNow: Boolean(cfg.clickNow),
+      startAt,
+      stopAt: Number(when.stopAt) || null,
+      waiting: startAt > now,
       nextAt: 0,
     };
-    job.nextAt = Date.now() + (cfg.clickNow ? 0 : nextDelay(job));
+    job.nextAt = job.waiting ? startAt : now + (job.clickNow ? 0 : nextDelay(job));
     await setJob(tabId, job);
     await setResult(tabId, null);
     await updateBadge(tabId, job);
@@ -108,9 +123,24 @@ function fire(tabId) {
     timers.delete(tabId);
     const job = (await getJobs())[tabId];
     if (!job) return;
+    if (job.stopAt && Date.now() >= job.stopAt - 250) {
+      await finish(tabId, "timeup", job.count);
+      return;
+    }
     if (Date.now() < job.nextAt - 250) {
       schedule(job); // woken up early or twice
       return;
+    }
+    if (job.waiting) {
+      // The scheduled start time has come
+      job.waiting = false;
+      if (!job.clickNow) {
+        job.nextAt = Date.now() + nextDelay(job);
+        await setJob(tabId, job);
+        await updateBadge(tabId, job);
+        schedule(job);
+        return;
+      }
     }
     let result;
     try {
@@ -156,7 +186,7 @@ async function savePicked(sender, target) {
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const handlers = {
-    start: () => start(msg.tabId, msg.target, msg.config),
+    start: () => start(msg.tabId, msg.target, msg.config, msg.when),
     stop: () => stop(msg.tabId),
     picked: () => savePicked(sender, msg.target),
   };
