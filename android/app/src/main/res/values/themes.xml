@@ -39,6 +39,19 @@
         <item name="android:importantForAutofill">no</item>
     </style>
 
+    <style name="DurationField" parent="NumberField">
+        <item name="android:layout_width">120dp</item>
+        <item name="android:inputType">time</item>
+        <item name="android:maxLength">9</item>
+        <item name="android:hint">hh:mm:ss</item>
+    </style>
+
+    <style name="TimeButton">
+        <item name="android:layout_width">120dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:fontFamily">monospace</item>
+    </style>
+
     <style name="PanelButton">
         <item name="android:layout_width">48dp</item>
         <item name="android:layout_height">48dp</item>

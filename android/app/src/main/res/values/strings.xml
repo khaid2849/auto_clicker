@@ -18,6 +18,15 @@
     <string name="repeat">Stop after (taps, 0 = never)</string>
     <string name="click_now">Tap right away when starting</string>
 
+    <string name="section_schedule">Schedule</string>
+    <string name="sched_start">Start</string>
+    <string name="sched_stop">Stop</string>
+    <string name="sched_time">Time</string>
+    <string name="sched_start_in">Countdown (hh:mm:ss)</string>
+    <string name="sched_stop_after">Run for (hh:mm:ss)</string>
+    <string name="sched_note">Keep the screen on for a scheduled start: Android may pause the app while the screen is off.</string>
+    <string name="bad_duration">Use hh:mm:ss, e.g. 01:30:00</string>
+
     <string name="section_click">Tap</string>
     <string name="tap_type">Type</string>
     <string name="pos_jitter">Random offset ± (pixels)</string>
@@ -43,12 +52,28 @@
     <string name="status_no_target">Pick a spot first (🎯)</string>
     <string name="status_running">%1$s\n%2$d taps</string>
     <string name="done_n">Done: %1$d taps</string>
+    <string name="time_up_n">Stop time reached: %1$d taps</string>
+    <string name="status_waiting">Starts in\n%1$s</string>
+    <string name="plan_start">Starts %1$s</string>
+    <string name="plan_stop">Stops %1$s</string>
+    <string name="when_tomorrow">%1$s tomorrow</string>
+    <string name="when_date">%1$s, %2$s</string>
     <string name="picker_hint">Touch the spot to tap, then lift your finger</string>
 
     <string-array name="units">
         <item>seconds</item>
         <item>minutes</item>
         <item>hours</item>
+    </string-array>
+    <string-array name="start_modes">
+        <item>Right away</item>
+        <item>At a time of day</item>
+        <item>After a countdown</item>
+    </string-array>
+    <string-array name="stop_modes">
+        <item>No time limit</item>
+        <item>At a time of day</item>
+        <item>After running for</item>
     </string-array>
     <string-array name="tap_types">
         <item>Tap</item>

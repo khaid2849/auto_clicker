@@ -8,16 +8,16 @@ import sys
 import time
 from datetime import datetime
 
-from PySide6.QtCore import QEvent, QObject, QPoint, QSettings, QSize, Qt, QTimer
+from PySide6.QtCore import QEvent, QObject, QPoint, QSettings, QSize, Qt, QTime, QTimer
 from PySide6.QtGui import QCursor, QGuiApplication, QIcon, QKeySequence, QShortcut
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QFormLayout, QFrame, QGridLayout, QGroupBox,
     QHBoxLayout, QLabel, QMainWindow, QMenu, QMessageBox, QPlainTextEdit, QPushButton,
-    QScrollArea, QSpinBox, QSystemTrayIcon, QVBoxLayout, QWidget,
+    QScrollArea, QSpinBox, QSystemTrayIcon, QTimeEdit, QVBoxLayout, QWidget,
 )
 
-from . import __version__, backends, theme
+from . import __version__, backends, schedule, theme
 from .backends import DryBackend
 from .common import APP_ID, APP_NAME, ORG_NAME, fmt_duration, make_icon, mono_font
 from .i18n import tr
@@ -57,6 +57,14 @@ class SettingsScroll(QScrollArea):
                      self.fontMetrics().lineSpacing() * 6)
 
 
+def _secs_to_qtime(sec: int) -> QTime:
+    return QTime(0, 0).addSecs(max(0, min(int(sec), 86399)))
+
+
+def _qtime_to_secs(t: QTime) -> int:
+    return QTime(0, 0).secsTo(t)
+
+
 def make_settings() -> QSettings:
     path = os.environ.get("AUTOCLICKER_SETTINGS")  # used by the tests
     return QSettings(path, QSettings.IniFormat) if path else QSettings(ORG_NAME, "AutoClicker")
@@ -74,9 +82,13 @@ class MainWindow(QMainWindow):
 
         self.backend = backends.create_backend()
         self.keepawake = backends.create_keepawake()
-        self.running = False
+        self.running = False  # True from Start until Stop, including the wait for a scheduled start
+        self.waiting = False  # running, but the scheduled start time hasn't come yet
         self.count = 0
-        self.next_at = 0.0
+        self.next_at = 0.0  # time.monotonic() of the next click
+        self.start_ts = 0.0  # time.time() of the (scheduled) start
+        self.stop_ts: float | None = None  # time.time() of the scheduled stop, None = no time limit
+        self._start_text = self._stop_text = ""  # "19:30", "21:00 tomorrow" for the status card
         self._marker = None
         self._ext_dialog = None
         self.tray = None
@@ -135,6 +147,7 @@ class MainWindow(QMainWindow):
         boxes.setSpacing(10)
         boxes.addWidget(self._build_position_box())
         boxes.addWidget(self._build_time_box())
+        boxes.addWidget(self._build_schedule_box())
         boxes.addWidget(self._build_click_box())
         boxes.addStretch()
         self.settings_scroll = SettingsScroll(content)
@@ -225,6 +238,42 @@ class MainWindow(QMainWindow):
         self.time_box = box
         return box
 
+    def _build_schedule_box(self) -> QGroupBox:
+        """Start: right away / at 19:30 / in 00:20:00.  Stop: no limit / at 21:00 / after 01:30:00."""
+        box = QGroupBox(tr("sched_box"))
+        f = QFormLayout(box)
+
+        def row(modes: tuple[str, ...], prefix: str, min_duration: int):
+            combo = QComboBox()
+            for mode in modes:
+                combo.addItem(tr(f"{prefix}_{mode}"), mode)
+            clock = QTimeEdit(displayFormat="HH:mm")
+            clock.setWrapping(True)
+            duration = QTimeEdit(displayFormat="HH:mm:ss")
+            duration.setMinimumTime(_secs_to_qtime(min_duration))
+            duration.setToolTip(tr("duration_tip"))
+            h = QHBoxLayout()
+            h.addWidget(combo, 1)
+            h.addWidget(clock)
+            h.addWidget(duration)
+            combo.currentIndexChanged.connect(self._update_schedule_fields)
+            return h, combo, clock, duration
+
+        h, self.start_mode_combo, self.start_at_edit, self.start_in_edit = row(schedule.START_MODES, "sched_start", 0)
+        f.addRow(tr("sched_start"), h)
+        h, self.stop_mode_combo, self.stop_at_edit, self.stop_after_edit = row(schedule.STOP_MODES, "sched_stop", 1)
+        f.addRow(tr("sched_stop"), h)
+        self.schedule_box = box
+        return box
+
+    def _update_schedule_fields(self, *_):
+        """Show only the time field that goes with each chosen mode."""
+        start, stop = self.start_mode_combo.currentData(), self.stop_mode_combo.currentData()
+        self.start_at_edit.setVisible(start == "at")
+        self.start_in_edit.setVisible(start == "in")
+        self.stop_at_edit.setVisible(stop == "at")
+        self.stop_after_edit.setVisible(stop == "after")
+
     def _build_click_box(self) -> QGroupBox:
         box = QGroupBox(tr("click_box"))
         f = QFormLayout(box)
@@ -259,10 +308,14 @@ class MainWindow(QMainWindow):
         top.addStretch()
         top.addWidget(self.count_lbl)
         v.addLayout(top)
-        v.addWidget(QLabel(tr("next_click"), alignment=Qt.AlignCenter))
+        self.next_lbl = QLabel(tr("next_click"), alignment=Qt.AlignCenter)
+        v.addWidget(self.next_lbl)
         self.countdown_lbl = QLabel("--:--", alignment=Qt.AlignCenter)
         self.countdown_lbl.setFont(mono_font(28, bold=True))
         v.addWidget(self.countdown_lbl)
+        self.plan_lbl = QLabel(objectName="muted", alignment=Qt.AlignCenter)  # "Starts 19:30 · Stops 21:00"
+        self.plan_lbl.hide()
+        v.addWidget(self.plan_lbl)
         self.start_btn = QPushButton(objectName="startBtn")
         self.start_btn.setCursor(Qt.PointingHandCursor)
         self.start_btn.clicked.connect(self.toggle)
@@ -358,6 +411,14 @@ class MainWindow(QMainWindow):
         self.jitter_spin.setValue(s.value("jitter", 0, type=int))
         self.repeat_spin.setValue(s.value("repeat", 0, type=int))
         self.click_now_cb.setChecked(s.value("click_now", False, type=bool))
+        for combo, key in ((self.start_mode_combo, "start_mode"), (self.stop_mode_combo, "stop_mode")):
+            combo.setCurrentIndex(max(0, combo.findData(s.value(key, combo.itemData(0)))))
+        for edit, key, default in ((self.start_at_edit, "start_at", "19:30"), (self.stop_at_edit, "stop_at", "21:00")):
+            t = QTime.fromString(str(s.value(key, default)), "HH:mm")
+            edit.setTime(t if t.isValid() else QTime.fromString(default, "HH:mm"))
+        self.start_in_edit.setTime(_secs_to_qtime(s.value("start_in", 20 * 60, type=int)))
+        self.stop_after_edit.setTime(_secs_to_qtime(s.value("stop_after", 90 * 60, type=int)))
+        self._update_schedule_fields()
         self.button_combo.setCurrentIndex(s.value("button", 0, type=int))
         self.type_combo.setCurrentIndex(s.value("click_type", 0, type=int))
         self.pos_jitter_spin.setValue(s.value("pos_jitter", 0, type=int))
@@ -371,6 +432,11 @@ class MainWindow(QMainWindow):
             "interval": self.interval_spin.value(), "unit": self.unit_combo.currentIndex(),
             "jitter": self.jitter_spin.value(), "repeat": self.repeat_spin.value(),
             "click_now": self.click_now_cb.isChecked(),
+            "start_mode": self.start_mode_combo.currentData(), "stop_mode": self.stop_mode_combo.currentData(),
+            "start_at": self.start_at_edit.time().toString("HH:mm"),
+            "stop_at": self.stop_at_edit.time().toString("HH:mm"),
+            "start_in": _qtime_to_secs(self.start_in_edit.time()),
+            "stop_after": _qtime_to_secs(self.stop_after_edit.time()),
             "button": self.button_combo.currentIndex(), "click_type": self.type_combo.currentIndex(),
             "pos_jitter": self.pos_jitter_spin.value(), "keep_awake": self.awake_cb.isChecked(),
             "theme": self.theme_mode,
@@ -429,21 +495,50 @@ class MainWindow(QMainWindow):
             if QMessageBox.question(self, APP_NAME, tr("outside_confirm")) != QMessageBox.Yes:
                 return
         self._save_settings()
+        now = datetime.now()
+        start, stop = self._plan(now)
         self.running = True
         self.count = 0
-        self.next_at = time.monotonic() + (0 if self.click_now_cb.isChecked() else self._next_interval())
+        self.start_ts = start.timestamp()
+        self.stop_ts = stop.timestamp() if stop else None
+        self.waiting = start > now
+        # Keep the computer awake during the wait as well, or it may be asleep when the start time comes
         if not self.keepawake.begin(self.awake_cb.isChecked()):
             self.log(tr("log_no_awake"))
+        self._start_text = schedule.fmt_when(start, now)
+        self._stop_text = schedule.fmt_when(stop, now) if stop else ""
+        if self.waiting:
+            self.log(tr("log_scheduled", t=self._start_text))
+        else:
+            self._begin_clicking()
+        if stop:
+            self.log(tr("log_stop_at", t=self._stop_text))
         self._set_running_ui(True)
-        self.log(tr("log_start", button=self.button_combo.currentText().lower(), x=x, y=y,
-                    n=self.interval_spin.value(), unit=self.unit_combo.currentText()))
         self.tick_timer.start(200)
         self._tick()
+
+    def _plan(self, now: datetime) -> tuple[datetime, datetime | None]:
+        at = (self.start_at_edit.time(), self.stop_at_edit.time())
+        return schedule.plan(
+            now,
+            self.start_mode_combo.currentData(), (at[0].hour(), at[0].minute()), _qtime_to_secs(self.start_in_edit.time()),
+            self.stop_mode_combo.currentData(), (at[1].hour(), at[1].minute()), _qtime_to_secs(self.stop_after_edit.time()),
+        )
+
+    def _begin_clicking(self):
+        """The start time has come (or Start was pressed with "Right away"): the clicks begin."""
+        self.waiting = False
+        self.next_at = time.monotonic() + (0 if self.click_now_cb.isChecked() else self._next_interval())
+        self.log(tr("log_start", button=self.button_combo.currentText().lower(),
+                    x=self.x_spin.value(), y=self.y_spin.value(),
+                    n=self.interval_spin.value(), unit=self.unit_combo.currentText()))
+        self._set_running_ui(True)
 
     def stop(self, reason: str | None = None):
         if not self.running:
             return
         self.running = False
+        self.waiting = False
         self.tick_timer.stop()
         self.keepawake.end()
         self._set_running_ui(False)
@@ -462,6 +557,18 @@ class MainWindow(QMainWindow):
             if p.x() <= 2 and p.y() <= 2:
                 self.stop(tr("reason_failsafe"))
                 return
+        wall = time.time()  # wall clock: keeps counting while the computer sleeps
+        if self.stop_ts is not None and wall >= self.stop_ts:
+            self.stop(tr("reason_time_up", n=self.count))
+            return
+        if self.waiting:
+            if wall < self.start_ts:
+                remaining = fmt_duration(self.start_ts - wall)
+                self.countdown_lbl.setText(remaining)
+                if self.tray:
+                    self.tray.setToolTip(tr("tray_starts", app=APP_NAME, t=remaining))
+                return
+            self._begin_clicking()
         now = time.monotonic()
         if now >= self.next_at:
             self._do_click()
@@ -495,15 +602,24 @@ class MainWindow(QMainWindow):
                  + (tr("log_dry") if isinstance(self.backend, DryBackend) else ""))
 
     def _set_running_ui(self, running: bool):
-        for box in (self.position_box, self.time_box, self.click_box):
+        for box in (self.position_box, self.time_box, self.schedule_box, self.click_box):
             box.setEnabled(not running)
         self.start_btn.setText(tr("stop" if running else "start", sc=SHORTCUT_LABEL))
         self.start_btn.setProperty("running", running)
         self.start_btn.style().unpolish(self.start_btn)
         self.start_btn.style().polish(self.start_btn)
-        color = "#16a34a" if running else "#9ca3af"
-        self.state_lbl.setText(f"<span style='color:{color}'>●</span> {tr('running' if running else 'stopped')}")
+        state = "waiting" if running and self.waiting else "running" if running else "stopped"
+        color = {"waiting": "#d97706", "running": "#16a34a", "stopped": "#9ca3af"}[state]
+        self.state_lbl.setText(f"<span style='color:{color}'>●</span> {tr(state)}")
         self.count_lbl.setText(tr("clicks", n=self.count))
+        self.next_lbl.setText(tr("starts_in" if state == "waiting" else "next_click"))
+        plan = []
+        if state == "waiting":
+            plan.append(tr("plan_start", t=self._start_text))
+        if running and self.stop_ts is not None:
+            plan.append(tr("plan_stop", t=self._stop_text))
+        self.plan_lbl.setText("  ·  ".join(plan))
+        self.plan_lbl.setVisible(bool(plan))
         if not running:
             self.countdown_lbl.setText("--:--")
         if self.tray:

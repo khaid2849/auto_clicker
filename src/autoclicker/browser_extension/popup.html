@@ -50,6 +50,30 @@
     </section>
 
     <section class="settings">
+      <h2 data-i18n="schedule"></h2>
+      <div class="row sched">
+        <label for="startMode" data-i18n="sched_start"></label>
+        <select id="startMode">
+          <option value="now" data-i18n="sched_start_now"></option>
+          <option value="at" data-i18n="sched_start_at"></option>
+          <option value="in" data-i18n="sched_start_in"></option>
+        </select>
+        <input id="startAt" class="time" type="time" value="19:30">
+        <input id="startIn" class="time" type="text" value="00:20:00" placeholder="hh:mm:ss" inputmode="numeric" data-i18n-title="duration_tip">
+      </div>
+      <div class="row sched">
+        <label for="stopMode" data-i18n="sched_stop"></label>
+        <select id="stopMode">
+          <option value="none" data-i18n="sched_stop_none"></option>
+          <option value="at" data-i18n="sched_stop_at"></option>
+          <option value="after" data-i18n="sched_stop_after"></option>
+        </select>
+        <input id="stopAt" class="time" type="time" value="21:00">
+        <input id="stopAfter" class="time" type="text" value="01:30:00" placeholder="hh:mm:ss" inputmode="numeric" data-i18n-title="duration_tip">
+      </div>
+    </section>
+
+    <section class="settings">
       <h2 data-i18n="click_type"></h2>
       <div class="row">
         <label for="button" data-i18n="button"></label>
@@ -70,8 +94,9 @@
 
     <section class="status">
       <div class="state"><span id="dot" class="dot"></span><span id="stateText"></span><span id="count" class="count"></span></div>
-      <div class="next" data-i18n="next"></div>
+      <div id="next" class="next"></div>
       <div id="countdown" class="countdown">--:--</div>
+      <div id="plan" class="plan" hidden></div>
       <div id="message" class="message" hidden></div>
       <button id="toggle" class="primary"></button>
     </section>

@@ -55,11 +55,28 @@ class ClickerService : AccessibilityService() {
     var running = false
         private set
     private var count = 0
-    private var nextAt = 0L
+    private var nextAt = 0L // SystemClock.uptimeMillis() of the next tap
+    /** Running, but the scheduled start time hasn't come yet. */
+    private var waiting = false
+    private var plan = RunPlan(0L, null) // wall-clock start / stop of this run
 
     private val ticker = object : Runnable {
         override fun run() {
             if (!running) return
+            // Wall clock for the schedule: uptimeMillis stops while the phone sleeps
+            val wall = System.currentTimeMillis()
+            if (plan.stopAt?.let { wall >= it } == true) {
+                stop(getString(R.string.time_up_n, count))
+                return
+            }
+            if (waiting) {
+                if (wall < plan.startAt) {
+                    updateStatus()
+                    handler.postDelayed(this, TICK_MS)
+                    return
+                }
+                beginTapping()
+            }
             val now = SystemClock.uptimeMillis()
             if (now >= nextAt) {
                 if (tap()) count++
@@ -143,6 +160,8 @@ class ClickerService : AccessibilityService() {
         val p = panel ?: return
         p.findViewById<TextView>(R.id.toggle).text = getString(if (running) R.string.panel_stop else R.string.panel_start)
         p.findViewById<TextView>(R.id.status).text = when {
+            running && waiting ->
+                getString(R.string.status_waiting, fmtDuration(plan.startAt - System.currentTimeMillis()))
             running -> getString(R.string.status_running, fmtDuration(nextAt - SystemClock.uptimeMillis()), count)
             config.hasTarget -> getString(R.string.status_ready)
             else -> getString(R.string.status_no_target)
@@ -259,15 +278,41 @@ class ClickerService : AccessibilityService() {
         }
         running = true
         count = 0
-        nextAt = SystemClock.uptimeMillis() + if (config.clickNow) 0 else config.nextIntervalMs()
+        val now = System.currentTimeMillis()
+        plan = config.plan(now)
+        waiting = plan.startAt > now
+        if (!waiting) beginTapping()
+        // Also during the wait: if the screen turns off the phone sleeps and the start is late
         setKeepScreenOn(config.keepScreenOn)
         updateStatus()
+        val parts = listOfNotNull(
+            if (waiting) getString(R.string.plan_start, whenText(plan.startAt, now)) else null,
+            plan.stopAt?.let { getString(R.string.plan_stop, whenText(it, now)) },
+        )
+        if (parts.isNotEmpty()) toast(parts.joinToString(" · "))
         handler.post(ticker)
+    }
+
+    /** The start time has come (or ▶ was pressed with "Right away"): the taps begin. */
+    private fun beginTapping() {
+        waiting = false
+        nextAt = SystemClock.uptimeMillis() + if (config.clickNow) 0 else config.nextIntervalMs()
+    }
+
+    /** "19:30", "19:30 tomorrow" or "19:30, 30 Nov". */
+    private fun whenText(ms: Long, nowMs: Long): String {
+        val clock = fmtClock(ms)
+        return when (daysAhead(ms, nowMs)) {
+            0 -> clock
+            1 -> getString(R.string.when_tomorrow, clock)
+            else -> getString(R.string.when_date, clock, android.text.format.DateFormat.getMediumDateFormat(this).format(java.util.Date(ms)))
+        }
     }
 
     fun stop(reason: String? = null) {
         if (!running) return
         running = false
+        waiting = false
         handler.removeCallbacks(ticker)
         setKeepScreenOn(false)
         updateStatus()
